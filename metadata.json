@@ -1,0 +1,5 @@
+{
+  "name": "oligostudyexams",
+  "description": "An intelligent study companion that analyzes previous year question papers against your syllabus to generate targeted question banks and prioritized topic lists.",
+  "requestFramePermissions": []
+}
