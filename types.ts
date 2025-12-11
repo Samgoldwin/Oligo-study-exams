@@ -30,3 +30,12 @@ export enum AppState {
   SUCCESS,
   ERROR
 }
+
+/**
+ * Interface to allow swapping AI providers (Gemini, OpenAI, etc.)
+ * without changing the UI code.
+ */
+export interface AIProvider {
+  name: string;
+  generateStudyPlan(syllabus: string, files: File[]): Promise<StudyPlan>;
+}

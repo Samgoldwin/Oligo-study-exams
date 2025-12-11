@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { StudyPlan, TopicModule } from '../types';
-import { CheckCircle2, BarChart3, AlertCircle, Bookmark, ArrowRight, Download, List, Layers } from 'lucide-react';
+import { StudyPlan } from '../types';
+import { BarChart3, Bookmark, ArrowRight, Download, List, Layers } from 'lucide-react';
 import { jsPDF } from "jspdf";
 
 interface ResultViewProps {
@@ -9,30 +9,13 @@ interface ResultViewProps {
 }
 
 const PriorityBadge: React.FC<{ priority: string }> = ({ priority }) => {
-  const colors = {
-    High: "bg-red-100 text-red-700 border-red-200",
-    Medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    Low: "bg-green-100 text-green-700 border-green-200"
-  };
-  
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colors[priority as keyof typeof colors] || colors.Low}`}>
-      {priority} Priority
-    </span>
-  );
+  const className = `badge badge-priority-${priority.toLowerCase()}`;
+  return <span className={className}>{priority} Priority</span>;
 };
 
 const DifficultyBadge: React.FC<{ difficulty: string }> = ({ difficulty }) => {
-   const colors = {
-    Hard: "text-red-600 bg-red-50",
-    Medium: "text-yellow-600 bg-yellow-50",
-    Easy: "text-green-600 bg-green-50"
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[difficulty as keyof typeof colors] || colors.Easy}`}>
-      {difficulty}
-    </span>
-  );
+  const className = `badge badge-diff-${difficulty.toLowerCase()}`;
+  return <span className={className}>{difficulty}</span>;
 }
 
 export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
@@ -115,175 +98,157 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-         <h1 className="text-2xl font-bold text-slate-900">Analysis Results</h1>
-         <div className="flex gap-3">
-            <button 
-              onClick={downloadPDF}
-              className="flex items-center px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-            >
-               <Download className="w-4 h-4 mr-2" />
+      <div className="flex flex-col md-flex-row justify-between items-center gap-4">
+         <h2>Analysis Results</h2>
+         <div className="flex gap-4">
+            <button onClick={downloadPDF} className="btn btn-dark">
+               <Download size={16} style={{ marginRight: '0.5rem' }} />
                Download PDF
             </button>
-            <button 
-              onClick={onReset}
-              className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium transition-colors"
-            >
+            <button onClick={onReset} className="btn btn-secondary">
                New Analysis
             </button>
          </div>
       </div>
 
       {/* Summary Box */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-primary-100 rounded-xl shrink-0">
-            <BarChart3 className="w-6 h-6 text-primary-600" />
+      <div className="card">
+        <div className="flex gap-4">
+          <div style={{ padding: '0.75rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-lg)', height: 'fit-content' }}>
+            <BarChart3 size={24} color="var(--color-primary)" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Executive Summary</h2>
-            <p className="text-slate-600 leading-relaxed text-sm md:text-base">{plan.summary}</p>
+            <h3 style={{ marginBottom: '0.5rem' }}>Executive Summary</h3>
+            <p className="text-muted">{plan.summary}</p>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('questions')}
-          className={`flex items-center px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
-            activeTab === 'questions' 
-              ? 'border-primary-600 text-primary-700 bg-primary-50/50' 
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <List className="w-4 h-4 mr-2" />
-          All Questions
-        </button>
-        <button
-          onClick={() => setActiveTab('topics')}
-          className={`flex items-center px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
-            activeTab === 'topics' 
-              ? 'border-primary-600 text-primary-700 bg-primary-50/50' 
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <Layers className="w-4 h-4 mr-2" />
-          Topics to Complete
-        </button>
-      </div>
+      <div>
+        <div className="tab-list">
+          <button
+            onClick={() => setActiveTab('questions')}
+            className={`tab-btn ${activeTab === 'questions' ? 'active' : ''}`}
+          >
+            <List size={16} />
+            All Questions
+          </button>
+          <button
+            onClick={() => setActiveTab('topics')}
+            className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`}
+          >
+            <Layers size={16} />
+            Topics to Complete
+          </button>
+        </div>
 
-      {/* Tab Content: All Questions (Module-wise) */}
-      {activeTab === 'questions' && (
-        <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-           <div className="space-y-10">
-              {plan.modules.map((module, mIdx) => (
-                <div key={mIdx}>
-                  <div className="flex items-center gap-3 mb-4 pb-2 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">{module.topicName}</h3>
-                    <PriorityBadge priority={module.priority} />
-                    <span className="text-xs text-slate-400 ml-auto font-mono">
-                      {module.questions.length} Questions
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-3">
+        {/* Tab Content: All Questions (Module-wise) */}
+        {activeTab === 'questions' && (
+          <div className="card" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTop: 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                {plan.modules.map((module, mIdx) => (
+                  <div key={mIdx}>
+                    <div className="flex items-center gap-4" style={{ marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                      <h3>{module.topicName}</h3>
+                      <PriorityBadge priority={module.priority} />
+                      <span className="text-xs text-muted" style={{ marginLeft: 'auto', fontFamily: 'monospace' }}>
+                        {module.questions.length} Questions
+                      </span>
+                    </div>
+                    
                     {module.questions.length > 0 ? (
-                      module.questions.map((q, qIdx) => (
-                        <div key={qIdx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all group">
-                          <div className="flex justify-between items-start gap-4">
-                             <div className="flex gap-3">
-                                <span className="text-slate-400 font-mono text-sm mt-0.5 group-hover:text-primary-400 transition-colors">Q{qIdx + 1}</span>
-                                <p className="text-slate-800 font-medium">{q.text}</p>
-                             </div>
-                             <div className="flex flex-col items-end gap-2 shrink-0">
-                                {q.marks && (
-                                   <span className="text-xs font-mono bg-slate-200 text-slate-600 px-2 py-1 rounded">
-                                     {q.marks} Marks
-                                   </span>
-                                )}
-                                <DifficultyBadge difficulty={q.difficulty} />
-                             </div>
+                      <div>
+                        {module.questions.map((q, qIdx) => (
+                          <div key={qIdx} className="question-item">
+                            <div className="flex justify-between items-center gap-4">
+                              <div className="flex gap-4">
+                                <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>Q{qIdx + 1}</span>
+                                <p className="font-medium">{q.text}</p>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px' }}>
+                                  {q.marks && (
+                                    <span style={{ fontSize: '0.75rem', background: 'var(--color-bg)', padding: '0.125rem 0.5rem', borderRadius: '4px' }}>
+                                      {q.marks} Marks
+                                    </span>
+                                  )}
+                                  <DifficultyBadge difficulty={q.difficulty} />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     ) : (
-                      <div className="text-slate-400 italic text-sm py-2">No specific questions found for this topic.</div>
+                      <div className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No specific questions found for this topic.</div>
                     )}
                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
-      )}
-
-      {/* Tab Content: Study Plan / Topics */}
-      {activeTab === 'topics' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
-          {/* Topics List Sidebar */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              {plan.modules.map((module, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveModuleIndex(idx)}
-                  className={`w-full text-left p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors flex items-center justify-between group ${
-                    activeModuleIndex === idx ? 'bg-primary-50 hover:bg-primary-50' : ''
-                  }`}
-                >
-                  <div>
-                    <div className={`font-medium mb-1 ${activeModuleIndex === idx ? 'text-primary-700' : 'text-slate-700'}`}>
-                      {module.topicName}
-                    </div>
-                    <PriorityBadge priority={module.priority} />
-                  </div>
-                  <ArrowRight className={`w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform ${activeModuleIndex === idx ? 'text-primary-400' : ''}`} />
-                </button>
-              ))}
+                ))}
             </div>
           </div>
+        )}
 
-          {/* Module Detail Content */}
-          <div className="lg:col-span-2">
-            {activeModule && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                  <div className="flex justify-between items-start mb-4">
+        {/* Tab Content: Study Plan / Topics */}
+        {activeTab === 'topics' && (
+          <div className="grid grid-cols-1 lg-grid-cols-3 fade-in" style={{ marginTop: '1.5rem' }}>
+            {/* Topics List Sidebar */}
+            <div className="lg-col-span-1">
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {plan.modules.map((module, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveModuleIndex(idx)}
+                    className={`module-btn ${activeModuleIndex === idx ? 'active' : ''}`}
+                  >
+                    <div className="module-btn-content">
+                      <div style={{ color: activeModuleIndex === idx ? 'var(--color-primary)' : 'inherit' }}>
+                        {module.topicName}
+                      </div>
+                      <PriorityBadge priority={module.priority} />
+                    </div>
+                    <ArrowRight size={16} color={activeModuleIndex === idx ? 'var(--color-primary)' : 'var(--color-text-secondary)'} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Module Detail Content */}
+            <div className="lg-col-span-2">
+              {activeModule && (
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg)' }}>
+                    <h2 style={{ marginBottom: '0.5rem' }}>{activeModule.topicName}</h2>
+                    <p className="text-muted">{activeModule.description}</p>
+                  </div>
+                  
+                  <div style={{ padding: '1.5rem' }}>
+                    <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Bookmark size={20} color="var(--color-primary)" />
+                      Relevant Questions
+                    </h3>
+                    
                     <div>
-                       <h2 className="text-2xl font-bold text-slate-900 mb-2">{activeModule.topicName}</h2>
-                       <p className="text-slate-600">{activeModule.description}</p>
+                      {activeModule.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="question-item">
+                          <p className="font-medium" style={{ marginBottom: '0.5rem' }}>{q.text}</p>
+                          <div className="flex items-center gap-4">
+                            <DifficultyBadge difficulty={q.difficulty} />
+                            {q.marks && <span className="text-sm text-muted">{q.marks} Marks</span>}
+                          </div>
+                        </div>
+                      ))}
+                      {activeModule.questions.length === 0 && (
+                         <div className="text-muted" style={{ fontStyle: 'italic' }}>No specific questions listed for this topic.</div>
+                      )}
                     </div>
                   </div>
                 </div>
-                
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
-                    <Bookmark className="w-5 h-5 mr-2 text-primary-500" />
-                    Relevant Questions
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    {activeModule.questions.map((q, qIdx) => (
-                      <div key={qIdx} className="p-4 rounded-xl border border-slate-200 bg-white">
-                        <p className="text-slate-800 font-medium mb-2">{q.text}</p>
-                        <div className="flex items-center gap-3">
-                          <DifficultyBadge difficulty={q.difficulty} />
-                          {q.marks && <span className="text-xs text-slate-500">{q.marks} Marks</span>}
-                        </div>
-                      </div>
-                    ))}
-                    {activeModule.questions.length === 0 && (
-                       <div className="text-slate-400 italic">No specific questions listed for this topic.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

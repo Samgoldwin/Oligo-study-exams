@@ -1,7 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { StudyPlan } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { StudyPlan, AIProvider } from "../types";
 
 const responseSchema: Schema = {
   type: Type.OBJECT,
@@ -70,51 +68,60 @@ const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: s
   });
 };
 
-export const generateStudyPlan = async (
-  syllabus: string,
-  files: File[]
-): Promise<StudyPlan> => {
-  try {
-    const fileParts = await Promise.all(files.map(fileToGenerativePart));
+export class GeminiService implements AIProvider {
+  name = "Google Gemini 2.5";
+  private ai: GoogleGenAI;
 
-    const prompt = `
-      You are an expert exam strategist. 
-      
-      Here is the syllabus for an upcoming exam:
-      "${syllabus}"
-      
-      Attached are files containing previous year question papers.
-      
-      Your task:
-      1. First, extract ALL distinct questions verbatim found in the attached papers into a single consolidated list. Estimate difficulty and marks if not explicitly stated.
-      2. Analyze these questions against the syllabus to identify topics.
-      3. Create a "Study Plan" by grouping these topics into modules.
-      4. Assign a priority (High/Medium/Low) to each topic based on frequency.
-      5. Provide a summary of the analysis.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: {
-        parts: [
-          { text: prompt },
-          ...fileParts
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        temperature: 0.2, 
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("No response received from Gemini");
-    }
-
-    return JSON.parse(response.text) as StudyPlan;
-  } catch (error) {
-    console.error("Error generating study plan:", error);
-    throw error;
+  constructor() {
+    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
-};
+
+  async generateStudyPlan(syllabus: string, files: File[]): Promise<StudyPlan> {
+    try {
+      const fileParts = await Promise.all(files.map(fileToGenerativePart));
+
+      const prompt = `
+        You are an expert exam strategist. 
+        
+        Here is the syllabus for an upcoming exam:
+        "${syllabus}"
+        
+        Attached are files containing previous year question papers.
+        
+        Your task:
+        1. First, extract ALL distinct questions verbatim found in the attached papers into a single consolidated list. Estimate difficulty and marks if not explicitly stated.
+        2. Analyze these questions against the syllabus to identify topics.
+        3. Create a "Study Plan" by grouping these topics into modules.
+        4. Assign a priority (High/Medium/Low) to each topic based on frequency.
+        5. Provide a summary of the analysis.
+      `;
+
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: {
+          parts: [
+            { text: prompt },
+            ...fileParts
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: responseSchema,
+          temperature: 0.2, 
+        }
+      });
+
+      if (!response.text) {
+        throw new Error("No response received from Gemini");
+      }
+
+      return JSON.parse(response.text) as StudyPlan;
+    } catch (error) {
+      console.error("Error generating study plan:", error);
+      throw error;
+    }
+  }
+}
+
+// Export a singleton or factory
+export const aiService = new GeminiService();

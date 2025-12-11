@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Hero } from './components/Hero';
 import { ResultView } from './components/ResultView';
 import { FileUpload, StudyPlan, AppState } from './types';
-import { generateStudyPlan } from './services/geminiService';
-import { UploadCloud, X, File as FileIcon, Loader2, AlertTriangle, BookText, Sparkles } from 'lucide-react';
+import { aiService } from './services/geminiService'; // Using the abstracted service instance
+import { UploadCloud, X, File as FileIcon, AlertTriangle, BookText, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
   const [syllabus, setSyllabus] = useState('');
@@ -47,7 +47,8 @@ const App: React.FC = () => {
 
     try {
       const rawFiles = files.map(f => f.file);
-      const result = await generateStudyPlan(syllabus, rawFiles);
+      // Calls the generic interface method
+      const result = await aiService.generateStudyPlan(syllabus, rawFiles);
       setStudyPlan(result);
       setAppState(AppState.SUCCESS);
     } catch (err) {
@@ -64,56 +65,56 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Hero />
 
-      <main className="flex-grow bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+      <main className="grow" style={{ padding: '2.5rem 0' }}>
+        <div className="container">
           
           {appState === AppState.IDLE && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg-grid-cols-12">
               {/* Left Column: Syllabus Input */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                     <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                        <BookText className="w-5 h-5 mr-2 text-primary-500" />
+              <div className="lg-col-span-7">
+                <div className="card" style={{ height: '100%' }}>
+                  <div className="flex justify-between items-center" style={{ marginBottom: '1rem' }}>
+                     <h2 style={{ display: 'flex', alignItems: 'center', fontSize: '1.125rem' }}>
+                        <BookText size={20} style={{ marginRight: '0.5rem', color: 'var(--color-primary)' }} />
                         Syllabus
                      </h2>
-                     <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Required</span>
+                     <span className="text-xs text-muted" style={{ textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Required</span>
                   </div>
                   <textarea
                     value={syllabus}
                     onChange={(e) => setSyllabus(e.target.value)}
                     placeholder="Paste your syllabus chapters, topics, and sub-topics here..."
-                    className="w-full h-64 p-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none transition-all"
+                    className="input-textarea"
                   />
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="text-xs text-muted" style={{ marginTop: '0.5rem' }}>
                     Tip: Be as detailed as possible for better mapping.
                   </p>
                 </div>
               </div>
 
               {/* Right Column: File Upload */}
-              <div className="lg:col-span-5 space-y-6">
-                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-bold text-slate-800 flex items-center">
-                          <UploadCloud className="w-5 h-5 mr-2 text-primary-500" />
+              <div className="lg-col-span-5">
+                 <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <div className="flex justify-between items-center" style={{ marginBottom: '1rem' }}>
+                      <h2 style={{ display: 'flex', alignItems: 'center', fontSize: '1.125rem' }}>
+                          <UploadCloud size={20} style={{ marginRight: '0.5rem', color: 'var(--color-primary)' }} />
                           Question Papers
                       </h2>
-                      <span className="text-xs text-slate-400 uppercase font-semibold tracking-wider">Required</span>
+                      <span className="text-xs text-muted" style={{ textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Required</span>
                     </div>
 
                     <div 
                       onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 hover:border-primary-400 transition-all group flex-grow min-h-[200px]"
+                      className="upload-area grow"
                     >
-                      <div className="w-12 h-12 bg-primary-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <UploadCloud className="w-6 h-6 text-primary-600" />
+                      <div style={{ width: '3rem', height: '3rem', background: 'var(--color-primary-light)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                        <UploadCloud size={24} color="var(--color-primary)" />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">Click to upload files</p>
-                      <p className="text-xs text-slate-500 mt-1">PDF, PNG, JPG supported</p>
+                      <p className="font-medium">Click to upload files</p>
+                      <p className="text-xs text-muted" style={{ marginTop: '0.25rem' }}>PDF, PNG, JPG supported</p>
                       <input 
                         type="file" 
                         ref={fileInputRef}
@@ -126,26 +127,26 @@ const App: React.FC = () => {
 
                     {/* File List */}
                     {files.length > 0 && (
-                      <div className="mt-6 space-y-3">
-                        <h3 className="text-xs font-semibold text-slate-500 uppercase">Uploaded Files ({files.length})</h3>
-                        <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <h3 className="text-xs text-muted" style={{ textTransform: 'uppercase' }}>Uploaded Files ({files.length})</h3>
+                        <div style={{ maxHeight: '12rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           {files.map(f => (
-                            <div key={f.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg group hover:border-primary-200 transition-colors">
-                              <div className="flex items-center overflow-hidden">
+                            <div key={f.id} className="file-item">
+                              <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                                 {f.previewUrl ? (
-                                  <img src={f.previewUrl} alt="preview" className="w-8 h-8 object-cover rounded mr-3" />
+                                  <img src={f.previewUrl} alt="preview" className="file-preview" />
                                 ) : (
-                                  <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center mr-3 shrink-0">
-                                    <FileIcon className="w-4 h-4 text-red-500" />
+                                  <div style={{ width: '2rem', height: '2rem', background: 'var(--color-danger-bg)', borderRadius: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '0.75rem', flexShrink: 0 }}>
+                                    <FileIcon size={16} color="var(--color-danger)" />
                                   </div>
                                 )}
-                                <span className="text-sm text-slate-700 truncate font-medium">{f.file.name}</span>
+                                <span className="text-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 }}>{f.file.name}</span>
                               </div>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
-                                className="p-1.5 hover:bg-red-100 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                                className="icon-btn"
                               >
-                                <X className="w-4 h-4" />
+                                <X size={16} />
                               </button>
                             </div>
                           ))}
@@ -156,17 +157,18 @@ const App: React.FC = () => {
               </div>
 
               {/* Action Bar */}
-              <div className="lg:col-span-12">
+              <div className="lg-col-span-12">
                  {errorMsg && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center text-red-700">
-                       <AlertTriangle className="w-5 h-5 mr-2" />
+                    <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--color-danger-bg)', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', color: '#b91c1c', display: 'flex', alignItems: 'center' }}>
+                       <AlertTriangle size={20} style={{ marginRight: '0.5rem' }} />
                        {errorMsg}
                     </div>
                  )}
                  <button
                     onClick={handleGenerate}
                     disabled={!syllabus || files.length === 0}
-                    className="w-full py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-lg shadow-primary-500/30 transition-all transform hover:-translate-y-0.5"
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '1rem', fontSize: '1.125rem' }}
                  >
                     Generate Question Bank & Plan
                  </button>
@@ -175,16 +177,16 @@ const App: React.FC = () => {
           )}
 
           {appState === AppState.ANALYZING && (
-             <div className="flex flex-col items-center justify-center py-20">
-                <div className="relative">
-                   <div className="w-24 h-24 border-4 border-primary-100 border-t-primary-600 rounded-full animate-spin"></div>
-                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                      <Sparkles className="w-8 h-8 text-primary-600" />
+             <div className="flex flex-col items-center justify-center" style={{ padding: '5rem 0' }}>
+                <div style={{ position: 'relative' }}>
+                   <div className="spinner"></div>
+                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                      <Sparkles size={24} color="var(--color-primary)" />
                    </div>
                 </div>
-                <h3 className="mt-8 text-xl font-bold text-slate-900">Analyzing Documents...</h3>
-                <p className="text-slate-500 mt-2 max-w-md text-center">
-                   Gemini is scanning your past papers, cross-referencing with the syllabus, and extracting key questions. This may take a minute.
+                <h3 style={{ marginTop: '2rem', fontSize: '1.25rem' }}>Analyzing Documents...</h3>
+                <p className="text-muted text-center" style={{ marginTop: '0.5rem', maxWidth: '28rem' }}>
+                   {aiService.name} is scanning your past papers, cross-referencing with the syllabus, and extracting key questions. This may take a minute.
                 </p>
              </div>
           )}
@@ -194,17 +196,17 @@ const App: React.FC = () => {
           )}
 
           {appState === AppState.ERROR && (
-             <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                   <AlertTriangle className="w-10 h-10 text-red-500" />
+             <div className="flex flex-col items-center justify-center text-center" style={{ padding: '5rem 0' }}>
+                <div style={{ width: '5rem', height: '5rem', background: 'var(--color-danger-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                   <AlertTriangle size={40} color="var(--color-danger)" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">Analysis Failed</h3>
-                <p className="text-slate-600 max-w-md mb-8">
+                <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Analysis Failed</h3>
+                <p className="text-muted" style={{ maxWidth: '28rem', marginBottom: '2rem' }}>
                    {errorMsg || "We couldn't process the files. Please make sure the API key is valid and the files are legible."}
                 </p>
                 <button 
                   onClick={() => setAppState(AppState.IDLE)}
-                  className="px-6 py-3 bg-white border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50"
+                  className="btn btn-secondary"
                 >
                   Try Again
                 </button>
@@ -214,9 +216,9 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-6">
-         <div className="max-w-7xl mx-auto px-6 text-center text-slate-500 text-sm">
-            Built with React, Tailwind & Google Gemini API
+      <footer style={{ background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)', padding: '1.5rem 0' }}>
+         <div className="container text-center text-sm text-muted">
+            Built with React & {aiService.name}
          </div>
       </footer>
     </div>
