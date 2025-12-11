@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Hero } from './components/Hero';
 import { ResultView } from './components/ResultView';
 import { FileUpload, StudyPlan, AppState } from './types';
-import { aiService } from './services/geminiService'; // Using the abstracted service instance
+import { aiService } from './services/groqService'; // Switched to Groq service
 import { UploadCloud, X, File as FileIcon, AlertTriangle, BookText, Sparkles } from 'lucide-react';
 
 const MAX_FILE_SIZE_MB = 10;
