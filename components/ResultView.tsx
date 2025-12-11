@@ -160,7 +160,7 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
           }`}
         >
           <List className="w-4 h-4 mr-2" />
-          All Questions ({plan.extractedQuestions.length})
+          All Questions
         </button>
         <button
           onClick={() => setActiveTab('topics')}
@@ -175,25 +175,43 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
         </button>
       </div>
 
-      {/* Tab Content: All Questions */}
+      {/* Tab Content: All Questions (Module-wise) */}
       {activeTab === 'questions' && (
         <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-           <div className="space-y-4">
-              {plan.extractedQuestions.map((q, idx) => (
-                <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all">
-                  <div className="flex justify-between items-start gap-4">
-                     <div className="flex gap-3">
-                        <span className="text-slate-400 font-mono text-sm mt-0.5">#{idx + 1}</span>
-                        <p className="text-slate-800 font-medium">{q.text}</p>
-                     </div>
-                     <div className="flex flex-col items-end gap-2 shrink-0">
-                        {q.marks && (
-                           <span className="text-xs font-mono bg-slate-200 text-slate-600 px-2 py-1 rounded">
-                             {q.marks} Marks
-                           </span>
-                        )}
-                        <DifficultyBadge difficulty={q.difficulty} />
-                     </div>
+           <div className="space-y-10">
+              {plan.modules.map((module, mIdx) => (
+                <div key={mIdx}>
+                  <div className="flex items-center gap-3 mb-4 pb-2 border-b border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-800">{module.topicName}</h3>
+                    <PriorityBadge priority={module.priority} />
+                    <span className="text-xs text-slate-400 ml-auto font-mono">
+                      {module.questions.length} Questions
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {module.questions.length > 0 ? (
+                      module.questions.map((q, qIdx) => (
+                        <div key={qIdx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all group">
+                          <div className="flex justify-between items-start gap-4">
+                             <div className="flex gap-3">
+                                <span className="text-slate-400 font-mono text-sm mt-0.5 group-hover:text-primary-400 transition-colors">Q{qIdx + 1}</span>
+                                <p className="text-slate-800 font-medium">{q.text}</p>
+                             </div>
+                             <div className="flex flex-col items-end gap-2 shrink-0">
+                                {q.marks && (
+                                   <span className="text-xs font-mono bg-slate-200 text-slate-600 px-2 py-1 rounded">
+                                     {q.marks} Marks
+                                   </span>
+                                )}
+                                <DifficultyBadge difficulty={q.difficulty} />
+                             </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-slate-400 italic text-sm py-2">No specific questions found for this topic.</div>
+                    )}
                   </div>
                 </div>
               ))}
