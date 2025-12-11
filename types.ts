@@ -9,6 +9,7 @@ export interface Question {
   marks?: number;
   yearAppeared?: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
+  reference?: string;
 }
 
 export interface TopicModule {
@@ -19,6 +20,7 @@ export interface TopicModule {
 }
 
 export interface StudyPlan {
+  subject: string;
   summary: string;
   extractedQuestions: Question[];
   modules: TopicModule[];

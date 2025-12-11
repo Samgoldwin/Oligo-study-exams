@@ -1,9 +1,13 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type, Schema, GenerateContentResponse } from "@google/genai";
 import { StudyPlan, AIProvider } from "../types";
 
 const responseSchema: Schema = {
   type: Type.OBJECT,
   properties: {
+    subject: {
+      type: Type.STRING,
+      description: "The name of the subject or exam inferred from the syllabus (e.g., 'Physics', 'Constitutional Law', 'Data Structures')."
+    },
     summary: {
       type: Type.STRING,
       description: "A brief executive summary of the analysis, highlighting the most crucial areas to focus on."
@@ -17,7 +21,8 @@ const responseSchema: Schema = {
           text: { type: Type.STRING },
           marks: { type: Type.NUMBER, description: "Marks for the question if available" },
           difficulty: { type: Type.STRING, enum: ["Easy", "Medium", "Hard"] },
-          yearAppeared: { type: Type.STRING, description: "Year found in document if applicable" }
+          yearAppeared: { type: Type.STRING, description: "Year found in document if applicable" },
+          reference: { type: Type.STRING, description: "Specific location in the doc (e.g. 'Page 2, Q4' or 'Section B')" }
         }
       }
     },
@@ -38,7 +43,8 @@ const responseSchema: Schema = {
                 text: { type: Type.STRING },
                 marks: { type: Type.NUMBER },
                 difficulty: { type: Type.STRING, enum: ["Easy", "Medium", "Hard"] },
-                yearAppeared: { type: Type.STRING }
+                yearAppeared: { type: Type.STRING },
+                reference: { type: Type.STRING }
               }
             }
           }
@@ -47,7 +53,7 @@ const responseSchema: Schema = {
       }
     }
   },
-  required: ["summary", "extractedQuestions", "modules"]
+  required: ["subject", "summary", "extractedQuestions", "modules"]
 };
 
 // Helper to convert File to Base64
@@ -68,6 +74,21 @@ const fileToGenerativePart = async (file: File): Promise<{ inlineData: { data: s
   });
 };
 
+// Retry helper for API calls
+async function retryOperation<T>(operation: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+  try {
+    return await operation();
+  } catch (error: any) {
+    // Retry on 503 (Service Unavailable) or 429 (Too Many Requests)
+    if (retries > 0 && (error.status === 503 || error.status === 429)) {
+      console.warn(`API call failed with ${error.status}. Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return retryOperation(operation, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
+
 export class GeminiService implements AIProvider {
   name = "Google Gemini 2.5";
   private ai: GoogleGenAI;
@@ -78,6 +99,7 @@ export class GeminiService implements AIProvider {
 
   async generateStudyPlan(syllabus: string, files: File[]): Promise<StudyPlan> {
     try {
+      // 1. Convert files to base64
       const fileParts = await Promise.all(files.map(fileToGenerativePart));
 
       const prompt = `
@@ -89,35 +111,43 @@ export class GeminiService implements AIProvider {
         Attached are files containing previous year question papers.
         
         Your task:
-        1. First, extract ALL distinct questions verbatim found in the attached papers into a single consolidated list. Estimate difficulty and marks if not explicitly stated.
-        2. Analyze these questions against the syllabus to identify topics.
-        3. Create a "Study Plan" by grouping these topics into modules.
-        4. Assign a priority (High/Medium/Low) to each topic based on frequency.
-        5. Provide a summary of the analysis.
+        1. Identify the 'subject' of the exam.
+        2. Extract ALL distinct questions verbatim found in the attached papers into a single consolidated list. 
+           - Estimate difficulty and marks if not explicitly stated.
+           - Identify the 'reference' for each question (e.g., "Page 1, Q2", "2023 Paper Section B", "Q5.a").
+        3. Analyze these questions against the syllabus to identify topics.
+        4. Create a "Study Plan" by grouping these topics into modules. 
+           - Ensure EVERY extracted question is assigned to a relevant module.
+        5. Assign a priority (High/Medium/Low) to each topic based on frequency.
+        6. Provide a summary of the analysis.
       `;
 
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: {
-          parts: [
-            { text: prompt },
-            ...fileParts
-          ]
-        },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: responseSchema,
-          temperature: 0.2, 
-        }
-      });
+      // 2. Call API with Retry Logic
+      const response = await retryOperation<GenerateContentResponse>(() => 
+        this.ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: {
+            parts: [
+              { text: prompt },
+              ...fileParts
+            ]
+          },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema,
+            temperature: 0.2, // Low temperature for factual extraction
+          }
+        })
+      );
 
       if (!response.text) {
-        throw new Error("No response received from Gemini");
+        throw new Error("No response text received from AI provider.");
       }
 
       return JSON.parse(response.text) as StudyPlan;
     } catch (error) {
       console.error("Error generating study plan:", error);
+      // Re-throw with a user-friendly message if possible, or let the UI handle generic errors
       throw error;
     }
   }

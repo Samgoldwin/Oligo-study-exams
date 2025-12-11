@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StudyPlan } from '../types';
-import { BarChart3, Bookmark, ArrowRight, Download, List, Layers } from 'lucide-react';
+import { BarChart3, Bookmark, ArrowRight, Download, List, Layers, MapPin } from 'lucide-react';
 import { jsPDF } from "jspdf";
 
 interface ResultViewProps {
@@ -29,10 +29,10 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     let y = 20;
 
-    // Title
+    // Title with Subject Name
     doc.setFontSize(20);
     doc.setTextColor(40);
-    doc.text("ExamPrep AI - Question Bank & Study Plan", 15, y);
+    doc.text(`${plan.subject || 'Exam'} - Question Bank & Plan`, 15, y);
     y += 10;
 
     // Summary
@@ -42,66 +42,75 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
     doc.text(summaryLines, 15, y);
     y += (summaryLines.length * 7) + 10;
 
-    // ALL QUESTIONS SECTION
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("All Extracted Questions", 15, y);
-    y += 10;
-    
-    doc.setFontSize(11);
-    doc.setTextColor(50);
-    
-    plan.extractedQuestions.forEach((q, i) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        
-        const qText = `${i + 1}. ${q.text} [${q.difficulty}] ${q.marks ? `(${q.marks} marks)` : ''}`;
-        const lines = doc.splitTextToSize(qText, pageWidth - 30);
-        doc.text(lines, 15, y);
-        y += (lines.length * 6) + 4;
-    });
-
-    y += 15;
-    if (y > 250) { doc.addPage(); y = 20; }
-
-    // TOPICS SECTION
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("Topic-wise Study Plan", 15, y);
+    // Separator
+    doc.setDrawColor(200);
+    doc.line(15, y, pageWidth - 15, y);
     y += 10;
 
+    // MODULE-WISE SECTION (Replacing the flat list and previous split sections)
     plan.modules.forEach((mod) => {
         if (y > 250) { doc.addPage(); y = 20; }
         
-        doc.setFontSize(13);
+        // Module Header
+        doc.setFontSize(14);
         doc.setTextColor(0);
-        doc.text(`${mod.topicName} (${mod.priority} Priority)`, 15, y);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${mod.topicName}`, 15, y);
+        
+        const priorityWidth = doc.getTextWidth(mod.topicName);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(mod.priority === 'High' ? 185 : mod.priority === 'Medium' ? 133 : 21, mod.priority === 'High' ? 28 : mod.priority === 'Medium' ? 77 : 128, mod.priority === 'High' ? 28 : mod.priority === 'Medium' ? 14 : 61); // Simple color mapping
+        doc.text(`[${mod.priority} Priority]`, 15 + priorityWidth + 5, y);
         y += 7;
         
+        // Description
         doc.setFontSize(10);
         doc.setTextColor(80);
         const desc = doc.splitTextToSize(mod.description, pageWidth - 30);
         doc.text(desc, 15, y);
         y += (desc.length * 5) + 5;
 
-        // Topic questions
-        mod.questions.forEach(q => {
-             if (y > 270) { doc.addPage(); y = 20; }
-             const qLine = `- ${q.text}`;
-             const lines = doc.splitTextToSize(qLine, pageWidth - 40);
-             doc.text(lines, 20, y);
-             y += (lines.length * 5) + 2;
-        });
-        y += 10;
+        // Questions for this module
+        if (mod.questions.length > 0) {
+          doc.setFontSize(10);
+          doc.setTextColor(0);
+          
+          mod.questions.forEach((q, qIdx) => {
+               if (y > 270) { doc.addPage(); y = 20; }
+               
+               let meta = `[${q.difficulty}]`;
+               if (q.marks) meta += ` (${q.marks}M)`;
+               if (q.reference) meta += ` {Ref: ${q.reference}}`;
+               if (q.yearAppeared) meta += ` {Year: ${q.yearAppeared}}`;
+  
+               const qLine = `${qIdx + 1}. ${q.text}  ${meta}`;
+               const lines = doc.splitTextToSize(qLine, pageWidth - 40);
+               doc.text(lines, 20, y);
+               y += (lines.length * 5) + 3;
+          });
+        } else {
+           doc.setFontSize(10);
+           doc.setTextColor(150);
+           doc.text("(No specific questions extracted for this module)", 20, y);
+           y += 8;
+        }
+        y += 8;
     });
 
-    doc.save("QuestionBank_StudyPlan.pdf");
+    // Create a safe filename
+    const safeSubject = (plan.subject || 'QuestionBank').replace(/[^a-z0-9]/gi, '_');
+    doc.save(`${safeSubject}_QuestionBank.pdf`);
   };
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header & Controls */}
       <div className="flex flex-col md-flex-row justify-between items-center gap-4">
-         <h2>Analysis Results</h2>
+         <div>
+            <h2>Analysis Results</h2>
+            {plan.subject && <span className="text-muted text-sm font-medium">Subject: {plan.subject}</span>}
+         </div>
          <div className="flex gap-4">
             <button onClick={downloadPDF} className="btn btn-dark">
                <Download size={16} style={{ marginRight: '0.5rem' }} />
@@ -163,12 +172,25 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
                       <div>
                         {module.questions.map((q, qIdx) => (
                           <div key={qIdx} className="question-item">
-                            <div className="flex justify-between items-center gap-4">
-                              <div className="flex gap-4">
-                                <span className="text-muted text-sm" style={{ fontFamily: 'monospace' }}>Q{qIdx + 1}</span>
-                                <p className="font-medium">{q.text}</p>
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="flex gap-4" style={{ width: '100%' }}>
+                                <span className="text-muted text-sm" style={{ fontFamily: 'monospace', marginTop: '2px' }}>Q{qIdx + 1}</span>
+                                <div>
+                                  <p className="font-medium">{q.text}</p>
+                                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                                    {q.reference && (
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <MapPin size={12} />
+                                        {q.reference}
+                                      </span>
+                                    )}
+                                    {q.yearAppeared && (
+                                      <span>Year: {q.yearAppeared}</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px', flexShrink: 0 }}>
                                   {q.marks && (
                                     <span style={{ fontSize: '0.75rem', background: 'var(--color-bg)', padding: '0.125rem 0.5rem', borderRadius: '4px' }}>
                                       {q.marks} Marks
@@ -232,9 +254,19 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
                       {activeModule.questions.map((q, qIdx) => (
                         <div key={qIdx} className="question-item">
                           <p className="font-medium" style={{ marginBottom: '0.5rem' }}>{q.text}</p>
-                          <div className="flex items-center gap-4">
-                            <DifficultyBadge difficulty={q.difficulty} />
-                            {q.marks && <span className="text-sm text-muted">{q.marks} Marks</span>}
+                          <div className="flex justify-between items-center gap-4">
+                             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                               {q.reference && (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <MapPin size={14} />
+                                    {q.reference}
+                                  </span>
+                                )}
+                             </div>
+                             <div className="flex items-center gap-4">
+                                <DifficultyBadge difficulty={q.difficulty} />
+                                {q.marks && <span className="text-sm text-muted">{q.marks} Marks</span>}
+                             </div>
                           </div>
                         </div>
                       ))}

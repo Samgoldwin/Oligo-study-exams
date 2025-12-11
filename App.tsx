@@ -5,6 +5,9 @@ import { FileUpload, StudyPlan, AppState } from './types';
 import { aiService } from './services/geminiService'; // Using the abstracted service instance
 import { UploadCloud, X, File as FileIcon, AlertTriangle, BookText, Sparkles } from 'lucide-react';
 
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const App: React.FC = () => {
   const [syllabus, setSyllabus] = useState('');
   const [files, setFiles] = useState<FileUpload[]>([]);
@@ -16,15 +19,31 @@ const App: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles: FileUpload[] = Array.from(e.target.files).map((item) => {
-        const file = item as File;
-        return {
-          file,
-          id: Math.random().toString(36).substring(7),
-          previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
-        };
+      const selectedFiles = Array.from(e.target.files);
+      const validFiles: FileUpload[] = [];
+      let error = '';
+
+      selectedFiles.forEach(file => {
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          error = `File "${file.name}" exceeds the ${MAX_FILE_SIZE_MB}MB limit.`;
+        } else {
+          validFiles.push({
+            file,
+            id: Math.random().toString(36).substring(7),
+            previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+          });
+        }
       });
-      setFiles(prev => [...prev, ...newFiles]);
+
+      if (error) setErrorMsg(error);
+      else setErrorMsg(''); // Clear previous errors if successful
+
+      setFiles(prev => [...prev, ...validFiles]);
+    }
+    
+    // Reset input to allow selecting the same file again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -52,8 +71,9 @@ const App: React.FC = () => {
       setStudyPlan(result);
       setAppState(AppState.SUCCESS);
     } catch (err) {
+      console.error(err);
       setAppState(AppState.ERROR);
-      setErrorMsg("Failed to analyze documents. Please ensure files are valid (PDF/Images) and try again.");
+      setErrorMsg("Failed to analyze documents. Please ensure files are valid and try again.");
     }
   };
 
@@ -62,6 +82,7 @@ const App: React.FC = () => {
     setStudyPlan(null);
     setFiles([]);
     setSyllabus('');
+    setErrorMsg('');
   };
 
   return (
@@ -114,7 +135,7 @@ const App: React.FC = () => {
                         <UploadCloud size={24} color="var(--color-primary)" />
                       </div>
                       <p className="font-medium">Click to upload files</p>
-                      <p className="text-xs text-muted" style={{ marginTop: '0.25rem' }}>PDF, PNG, JPG supported</p>
+                      <p className="text-xs text-muted" style={{ marginTop: '0.25rem' }}>PDF, PNG, JPG (Max {MAX_FILE_SIZE_MB}MB)</p>
                       <input 
                         type="file" 
                         ref={fileInputRef}
@@ -159,9 +180,12 @@ const App: React.FC = () => {
               {/* Action Bar */}
               <div className="lg-col-span-12">
                  {errorMsg && (
-                    <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--color-danger-bg)', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', color: '#b91c1c', display: 'flex', alignItems: 'center' }}>
-                       <AlertTriangle size={20} style={{ marginRight: '0.5rem' }} />
-                       {errorMsg}
+                    <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--color-danger-bg)', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', color: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                       <div className="flex items-center">
+                         <AlertTriangle size={20} style={{ marginRight: '0.5rem' }} />
+                         {errorMsg}
+                       </div>
+                       <button onClick={() => setErrorMsg('')} className="icon-btn" style={{ marginLeft: '1rem' }}><X size={18} /></button>
                     </div>
                  )}
                  <button
