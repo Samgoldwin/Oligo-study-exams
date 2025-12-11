@@ -1,10 +1,11 @@
 import { Groq } from 'groq-sdk';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
 
     // Prepare file content for Groq
     const fileContents = files
-      .map((f) => `[File: ${f.name}]\n${f.data}`)
+      .map((f: any) => `[File: ${f.name}]\n${f.data}`)
       .join('\n\n');
 
     const prompt = `You are an expert educational advisor. Analyze the following syllabus and previous year question papers to create a comprehensive study plan.
@@ -38,7 +39,7 @@ Please provide a detailed JSON response with:
 
 Format as valid JSON only.`;
 
-    const message = await groq.messages.create({
+    const message = await groq.chat.completions.create({
       model: 'mixtral-8x7b-32768',
       max_tokens: 2048,
       messages: [
@@ -49,8 +50,7 @@ Format as valid JSON only.`;
       ],
     });
 
-    const responseText =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+    const responseText = message.choices[0].message.content || '';
     const studyPlan = JSON.parse(responseText);
 
     return res.status(200).json(studyPlan);
