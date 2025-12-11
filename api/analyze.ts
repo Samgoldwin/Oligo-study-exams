@@ -17,7 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing syllabus or files' });
     }
 
-    // Prepare file content for Groq
     const fileContents = files
       .map((f: any) => `[File: ${f.name}]\n${f.data}`)
       .join('\n\n');
@@ -40,7 +39,7 @@ Please provide a detailed JSON response with:
 Format as valid JSON only.`;
 
     const message = await groq.chat.completions.create({
-      model: 'mixtral-8x7b-32768',
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 2048,
       messages: [
         {
