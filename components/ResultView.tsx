@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StudyPlan } from '../types';
-import { BarChart3, Bookmark, ArrowRight, Download, List, Layers, MapPin } from 'lucide-react';
+import { BarChart3, Bookmark, ArrowRight, Download, List, Layers, MapPin, ArrowUpDown } from 'lucide-react';
 import { jsPDF } from "jspdf";
 
 interface ResultViewProps {
@@ -21,6 +21,7 @@ const DifficultyBadge: React.FC<{ difficulty: string }> = ({ difficulty }) => {
 export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
   const [activeTab, setActiveTab] = useState<'questions' | 'topics'>('questions');
   const [activeModuleIndex, setActiveModuleIndex] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<'topic' | 'marks'>('topic');
 
   const activeModule = plan.modules[activeModuleIndex];
 
@@ -103,6 +104,13 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
     doc.save(`${safeSubject}_QuestionBank.pdf`);
   };
 
+  const sortedQuestions = React.useMemo(() => {
+    if (sortBy === 'marks') {
+      return [...plan.extractedQuestions].sort((a, b) => (b.marks || 0) - (a.marks || 0));
+    }
+    return [];
+  }, [plan.extractedQuestions, sortBy]);
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header & Controls */}
@@ -154,60 +162,112 @@ export const ResultView: React.FC<ResultViewProps> = ({ plan, onReset }) => {
           </button>
         </div>
 
-        {/* Tab Content: All Questions (Module-wise) */}
+        {/* Tab Content: All Questions */}
         {activeTab === 'questions' && (
           <div className="card" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTop: 'none' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                {plan.modules.map((module, mIdx) => (
-                  <div key={mIdx}>
-                    <div className="flex items-center gap-4" style={{ marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
-                      <h3>{module.topicName}</h3>
-                      <PriorityBadge priority={module.priority} />
-                      <span className="text-xs text-muted" style={{ marginLeft: 'auto', fontFamily: 'monospace' }}>
-                        {module.questions.length} Questions
-                      </span>
-                    </div>
-                    
-                    {module.questions.length > 0 ? (
-                      <div>
-                        {module.questions.map((q, qIdx) => (
-                          <div key={qIdx} className="question-item">
-                            <div className="flex justify-between items-start gap-4">
-                              <div className="flex gap-4" style={{ width: '100%' }}>
-                                <span className="text-muted text-sm" style={{ fontFamily: 'monospace', marginTop: '2px' }}>Q{qIdx + 1}</span>
-                                <div>
-                                  <p className="font-medium">{q.text}</p>
-                                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                                    {q.reference && (
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                        <MapPin size={12} />
-                                        {q.reference}
-                                      </span>
-                                    )}
-                                    {q.yearAppeared && (
-                                      <span>Year: {q.yearAppeared}</span>
-                                    )}
+            
+            <div className="flex justify-end mb-6 pb-2 border-b border-gray-200">
+               <button 
+                 onClick={() => setSortBy(prev => prev === 'topic' ? 'marks' : 'topic')}
+                 className="btn btn-secondary"
+                 style={{ fontSize: '0.875rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+               >
+                 <ArrowUpDown size={14} />
+                 {sortBy === 'topic' ? 'Sort by Marks (High to Low)' : 'Group by Topic'}
+               </button>
+            </div>
+
+            {sortBy === 'topic' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                  {plan.modules.map((module, mIdx) => (
+                    <div key={mIdx}>
+                      <div className="flex items-center gap-4" style={{ marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                        <h3>{module.topicName}</h3>
+                        <PriorityBadge priority={module.priority} />
+                        <span className="text-xs text-muted" style={{ marginLeft: 'auto', fontFamily: 'monospace' }}>
+                          {module.questions.length} Questions
+                        </span>
+                      </div>
+                      
+                      {module.questions.length > 0 ? (
+                        <div>
+                          {module.questions.map((q, qIdx) => (
+                            <div key={qIdx} className="question-item">
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="flex gap-4" style={{ width: '100%' }}>
+                                  <span className="text-muted text-sm" style={{ fontFamily: 'monospace', marginTop: '2px' }}>Q{qIdx + 1}</span>
+                                  <div>
+                                    <p className="font-medium">{q.text}</p>
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                                      {q.reference && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                          <MapPin size={12} />
+                                          {q.reference}
+                                        </span>
+                                      )}
+                                      {q.yearAppeared && (
+                                        <span>Year: {q.yearAppeared}</span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px', flexShrink: 0 }}>
-                                  {q.marks && (
-                                    <span style={{ fontSize: '0.75rem', background: 'var(--color-bg)', padding: '0.125rem 0.5rem', borderRadius: '4px' }}>
-                                      {q.marks} Marks
-                                    </span>
-                                  )}
-                                  <DifficultyBadge difficulty={q.difficulty} />
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px', flexShrink: 0 }}>
+                                    {q.marks && (
+                                      <span style={{ fontSize: '0.75rem', background: 'var(--color-bg)', padding: '0.125rem 0.5rem', borderRadius: '4px' }}>
+                                        {q.marks} Marks
+                                      </span>
+                                    )}
+                                    <DifficultyBadge difficulty={q.difficulty} />
+                                </div>
                               </div>
                             </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No specific questions found for this topic.</div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              // Sorted by Marks View (Flat List)
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                 {sortedQuestions.map((q, qIdx) => (
+                    <div key={qIdx} className="question-item">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex gap-4" style={{ width: '100%' }}>
+                          <span className="text-muted text-sm" style={{ fontFamily: 'monospace', marginTop: '2px' }}>{qIdx + 1}.</span>
+                          <div>
+                            <p className="font-medium">{q.text}</p>
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                              {q.reference && (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <MapPin size={12} />
+                                  {q.reference}
+                                </span>
+                              )}
+                              {q.yearAppeared && (
+                                <span>Year: {q.yearAppeared}</span>
+                              )}
+                            </div>
                           </div>
-                        ))}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', minWidth: '100px', flexShrink: 0 }}>
+                            {q.marks && (
+                              <span style={{ fontSize: '0.85rem', fontWeight: 600, background: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '0.25rem 0.6rem', borderRadius: '4px' }}>
+                                {q.marks} Marks
+                              </span>
+                            )}
+                            <DifficultyBadge difficulty={q.difficulty} />
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-muted text-sm" style={{ fontStyle: 'italic' }}>No specific questions found for this topic.</div>
-                    )}
-                  </div>
-                ))}
-            </div>
+                    </div>
+                 ))}
+                 {sortedQuestions.length === 0 && (
+                    <p className="text-muted text-center py-4">No questions available to sort.</p>
+                 )}
+              </div>
+            )}
           </div>
         )}
 
