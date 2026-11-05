@@ -36,6 +36,22 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
+function ResultsLegend() {
+  return (
+    <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
+      <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
+        <li><span className="rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-400">200</span> <span className="font-medium text-foreground">Success</span> — The API key is valid and working perfectly.</li>
+        <li><span className="rounded bg-red-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-red-400">401/403</span> <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
+        <li><span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-300">402</span> <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
+        <li><span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-300">429</span> <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
+        <li><span className="rounded bg-red-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-red-400">500/502/503</span> <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
+        <li><span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">Unknown</span> — Testing is not yet supported for this specific provider.</li>
+      </ul>
+    </div>
+  );
+}
+
 export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const [models, setModels] = useState<CustomModelMeta[]>([]);
   const [busy, setBusy] = useState(false);
@@ -79,7 +95,12 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
       setStep(1);
       void refresh();
       const t = setTimeout(() => firstInputRef.current?.focus(), 60);
-      return () => clearTimeout(t);
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        clearTimeout(t);
+      };
     }
   }, [open, refresh]);
 
@@ -177,7 +198,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 backdrop-blur-sm md:items-center md:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-background/70 backdrop-blur-sm md:items-center md:p-4"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -185,8 +206,13 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
       }}
     >
       <div className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/5 bg-popover shadow-2xl shadow-black/50 animate-in slide-in-from-bottom-4 fade-in-0 md:max-h-[86vh] md:rounded-2xl md:animate-in md:fade-in-0 md:zoom-in-95">
-        {/* Mobile grabber */}
-        <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/20 md:hidden" />
+        {/* Mobile grabber — tappable to dismiss */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close sheet"
+          className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/20 transition-colors hover:bg-muted-foreground/40 md:hidden"
+        />
 
         {/* Header */}
         <div className="flex shrink-0 items-start justify-between gap-4 px-5 pt-4 pb-3">
@@ -231,7 +257,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                         state === "active" ? "bg-foreground text-background" : state === "done" ? "bg-foreground/20 text-foreground" : "bg-muted text-muted-foreground",
                       )}
                     >
-                      {state === "done" ? "✓" : s.n}
+                      {s.n}
                     </span>
                     {s.label}
                   </button>
@@ -296,6 +322,8 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
               {error && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
               )}
+
+              {showLegend && <ResultsLegend />}
             </div>
           )}
 
@@ -316,10 +344,12 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
 
               {testResult && meta && (
                 <div className={cn("mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[12.5px]", TONE_CLS[meta.tone])}>
-                  <span className="mt-0.5 shrink-0 text-sm font-bold">{meta.icon}</span>
+                  <span className="mt-0.5 rounded bg-black/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold">
+                    {testResult.status ?? "—"}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
-                      {testResult.status ?? "Unknown"} · {meta.title} {meta.tone === "ok" && testResult.ms != null && `(${testResult.ms}ms)`}
+                      {meta.title} {meta.tone === "ok" && testResult.ms != null && `(${testResult.ms}ms)`}
                     </p>
                     <p className="mt-0.5 leading-relaxed opacity-90">{testResult.message ?? meta.detail}</p>
                   </div>
@@ -330,19 +360,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                 <p className="mt-3 text-[12px] font-medium text-emerald-400">Verified — this model is ready to save.</p>
               )}
 
-              {showLegend && (
-                <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
-                  <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
-                    <li><span className="font-semibold text-emerald-400">200:</span> ✓ <span className="font-medium text-foreground">Success!</span> The API key is valid and working perfectly.</li>
-                    <li><span className="font-semibold text-red-400">401/403:</span> ✗ <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
-                    <li><span className="font-semibold text-amber-300">402:</span> ⚠️ <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
-                    <li><span className="font-semibold text-amber-300">429:</span> ⚠️ <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
-                    <li><span className="font-semibold text-red-400">500/502/503:</span> ✗ <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
-                    <li><span className="font-semibold text-muted-foreground">Unknown:</span> — — Testing is not yet supported for this specific provider.</li>
-                  </ul>
-                </div>
-              )}
+              {showLegend && <ResultsLegend />}
 
               {error && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
@@ -353,7 +371,9 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           {/* Step 3 — Done */}
           {step === 3 && (
             <div className="animate-in fade-in-0 py-4 text-center">
-              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-2xl text-emerald-400">✓</div>
+              <div className="mx-auto w-fit rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-400">
+                Connected
+              </div>
               <p className="mt-3 text-base font-semibold text-foreground">Model connected</p>
               <p className="mx-auto mt-1 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
                 <span className="font-medium text-foreground">{name.trim() || "Your model"}</span> is saved and ready to use in chat. Your API key stays encrypted.
