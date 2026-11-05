@@ -508,6 +508,11 @@ export const SyncAIChat: React.FC<{
         const res = await syncAI.listCustomModels();
         if (cancelled) return;
         setCustomModels(res.models);
+        // Auto-select the first custom model (newest) as the default picker choice.
+        if (res.models.length) {
+          setModel(null);
+          setCustomModelId(res.models[0].id);
+        }
       } catch {
         /* not signed in / unavailable — ignore */
       }

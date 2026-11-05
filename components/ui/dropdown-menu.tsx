@@ -144,7 +144,10 @@ export function ModelPicker({
   className?: string
 }) {
   if (models.length === 0 && !customModels?.length) return null
-  const selected = models.find((m) => m.id === selectedId) ?? models.find((m) => m.current) ?? models[0]
+  const selectedCustom = customModels?.find((m) => m.id === selectedId)
+  const selectedModel = models.find((m) => m.id === selectedId) ?? models.find((m) => m.current) ?? models[0]
+  const selected = selectedCustom ?? selectedModel
+  const activeId = selectedCustom ? selectedCustom.id : selectedModel?.id
 
   return (
     <DropdownMenu>
@@ -168,7 +171,7 @@ export function ModelPicker({
       <DropdownMenuContent align="start" side="top" className="w-64">
         <DropdownMenuLabel>Chat models</DropdownMenuLabel>
         {models.map((m) => {
-          const isSelected = m.id === selected.id
+          const isSelected = m.id === activeId
           return (
             <DropdownMenuCheckboxItem
               key={m.id}
@@ -179,11 +182,6 @@ export function ModelPicker({
               className="cursor-pointer"
             >
               <span className="min-w-0 flex-1 truncate font-medium">{m.label}</span>
-              {m.current && (
-                <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  default
-                </span>
-              )}
               <span
                 className={cn(
                   "shrink-0 text-[10px] leading-none",
@@ -214,6 +212,15 @@ export function ModelPicker({
                 className="cursor-pointer"
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{cm.label}</span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[10px] leading-none",
+                    selectedId === cm.id ? "text-foreground" : "text-transparent"
+                  )}
+                  aria-hidden
+                >
+                  ●
+                </span>
               </DropdownMenuCheckboxItem>
             ))}
           </>

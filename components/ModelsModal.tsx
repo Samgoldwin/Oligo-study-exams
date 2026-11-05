@@ -36,6 +36,19 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
+const PRESETS = [
+  { name: "Google Gemini", info: "Free tier available", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" },
+  { name: "NVIDIA", info: "Free tier available", baseUrl: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
+  { name: "OpenRouter", info: "Free models available", baseUrl: "https://openrouter.ai/api/v1", model: "google/gemini-2.5-flash" },
+  { name: "Groq", info: "Free tier available", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
+  { name: "Cohere", info: "Free tier available", baseUrl: "https://api.cohere.ai/v2", model: "command-r7b-12b" },
+  { name: "Mistral", info: "Free tier available", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
+  { name: "Together AI", info: "Free tier available", baseUrl: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+  { name: "DeepSeek", info: "Low-cost", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  { name: "OpenAI", info: "Paid", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" },
+  { name: "Anthropic", info: "Paid", baseUrl: "https://api.anthropic.com/v1", model: "claude-3-5-haiku-latest" },
+];
+
 function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
@@ -191,8 +204,22 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     setTestResult(null);
     setVerifiedSig(null);
     setError(null);
+    setMissing({});
     setStep(1);
     setTimeout(() => firstInputRef.current?.focus(), 60);
+  };
+
+  const applyPreset = (p: (typeof PRESETS)[number]) => {
+    setName(p.name);
+    setBaseUrl(p.baseUrl);
+    setModel(p.model);
+    setMissing({});
+    setError(null);
+    // keep savedSigRef logic — snapshot clear; verify step re-runs on change
+    setVerifiedSig(null);
+    setTestStage("idle");
+    setTestResult(null);
+    firstInputRef.current?.focus();
   };
 
   const inputCls =
@@ -202,6 +229,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const primaryBtnCls =
     "flex h-9 flex-1 items-center justify-center rounded-xl bg-foreground px-4 text-[13px] font-semibold text-background transition-colors hover:opacity-90 disabled:opacity-50";
   const meta = testResult ? VERDICT_META[testResult.verdict] : null;
+  const activeProvider = PRESETS.find((p) => p.baseUrl === baseUrl.trim());
   const TEST_STEPS = [
     { text: "Encrypting your API key in this browser", desc: "RSA-OAEP · your key never travels in plain text" },
     { text: "Sending the encrypted key to SyncAI over HTTPS", desc: "Ciphertext only crosses the network" },
@@ -323,6 +351,33 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           {/* Step 1 — Connect */}
           {step === 1 && (
             <div className="animate-in fade-in-0">
+              {/* Popular providers */}
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Popular providers</p>
+              <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 snap-x">
+                {PRESETS.map((p) => {
+                  const isActive = activeProvider?.baseUrl === p.baseUrl;
+                  return (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      title={`${p.name} · ${p.info}`}
+                      className={cn(
+                        "flex shrink-0 snap-start items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                        isActive
+                          ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-200"
+                          : "border-border bg-background/40 text-muted-foreground hover:bg-accent hover:text-foreground",
+                      )}
+                    >
+                      <span>{p.name}</span>
+                      <span className={cn("text-[9px] font-semibold uppercase tracking-wide", p.info === "Paid" ? "text-muted-foreground/60" : "text-emerald-400")}>
+                        {p.info}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {models.length > 0 && (
                 <div className="mb-5">
                   <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Connected</p>
