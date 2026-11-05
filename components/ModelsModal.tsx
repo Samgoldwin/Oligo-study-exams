@@ -37,6 +37,18 @@ function sigOf(baseUrl: string, model: string, key: string): string {
 }
 
   // (No preset chips — freellm.net directory link only.)
+  const PRESETS = [
+    { name: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" },
+    { name: "Groq", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
+    { name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "google/gemini-2.5-flash" },
+    { name: "NVIDIA NIM", baseUrl: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
+    { name: "Cohere", baseUrl: "https://api.cohere.ai/v2", model: "command-r7b-12b" },
+    { name: "Mistral AI", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
+    { name: "Together AI", baseUrl: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
+    { name: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", model: "llama3.1-70b-versatile" },
+    { name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  ];
+
   function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
@@ -197,6 +209,19 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     setTimeout(() => firstInputRef.current?.focus(), 60);
   };
 
+  const applyPreset = (p: (typeof PRESETS)[number]) => {
+    setName(p.name);
+    setBaseUrl(p.baseUrl);
+    setModel(p.model);
+    setMissing({});
+    setError(null);
+    setVerifiedSig(null);
+    setTestStage("idle");
+    setTestResult(null);
+    firstInputRef.current?.focus();
+  };
+
+  const matchedProvider = PRESETS.find((p) => p.baseUrl === baseUrl.trim());
   const inputCls =
     "w-full rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30 focus:bg-background";
   const secondaryBtnCls =
@@ -326,21 +351,55 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           {step === 1 && (
             <div className="animate-in fade-in-0">
               {/* Free API key directory */}
-              <div className="mb-3 rounded-xl border border-border bg-muted/20 px-3.5 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold text-foreground">Need a free API key?</p>
+              <div className="mb-4 rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-foreground">Need a free API key?</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      Browse <span className="font-medium text-foreground">585+ free models</span> across 31 providers on the freeLLM directory — no credit card required.
+                    </p>
+                  </div>
                   <a
                     href="https://freellm.net/free-llm-api-keys"
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="shrink-0 text-[11px] font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground"
+                    className="shrink-0 rounded-lg bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background transition-colors hover:opacity-90"
                   >
                     Open directory
                   </a>
                 </div>
-                <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-                  585+ free models across 31 providers. Tap one to auto-fill, then paste the key you get there.
-                </p>
+                <div className="border-t border-border/70 bg-muted/20 px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                  {matchedProvider
+                    ? `Matches ${matchedProvider.name} — paste your API key and hit Test & verify.`
+                    : "Get a free key from the directory, paste it below, and hit Test & verify."}
+                </div>
+              </div>
+
+              {/* Provider list */}
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Providers</p>
+              <div className="mb-4 flex flex-col gap-1">
+                {PRESETS.map((p) => {
+                  const isActive = matchedProvider?.baseUrl === p.baseUrl;
+                  return (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors",
+                        isActive ? "border border-foreground/15 bg-accent" : "border border-transparent hover:border-border hover:bg-accent/50",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] font-medium text-foreground">{p.name}</span>
+                        <span className="block truncate text-[10.5px] text-muted-foreground">{p.baseUrl.replace(/^https?:\/\//, "")}</span>
+                      </span>
+                      <span className={cn("shrink-0 text-[10px] font-semibold uppercase tracking-wide", isActive ? "text-foreground" : "text-muted-foreground/70")}>
+                        {isActive ? "Active" : "Use"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {models.length > 0 && (
