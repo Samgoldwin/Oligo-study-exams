@@ -36,6 +36,20 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  baseUrl: "Base URL",
+  model: "Model ID",
+  key: "API key",
+};
+
+function missingSummary(missing: Record<string, boolean>): string {
+  return Object.keys(FIELD_LABELS)
+    .filter((k) => missing[k])
+    .map((k) => FIELD_LABELS[k])
+    .join(", ");
+}
+
 function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
@@ -62,6 +76,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const [model, setModel] = useState("");
   const [key, setKey] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [missing, setMissing] = useState<Record<string, boolean>>({});
 
   const [step, setStep] = useState<Step>(1);
   const [testStage, setTestStage] = useState<TestStage>("idle");
@@ -93,6 +108,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
       setVerifiedSig(null);
       savedSigRef.current = null;
       setStep(1);
+      setMissing({});
       void refresh();
       const t = setTimeout(() => firstInputRef.current?.focus(), 60);
       const prevOverflow = document.body.style.overflow;
@@ -105,6 +121,16 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   }, [open, refresh]);
 
   if (!open) return null;
+
+  const missingNow = (): Record<string, boolean> => {
+    const m: Record<string, boolean> = {};
+    if (!name.trim()) m.name = true;
+    if (!baseUrl.trim()) m.baseUrl = true;
+    if (!model.trim()) m.model = true;
+    if (!key.trim()) m.key = true;
+    return m;
+  };
+  const fieldCls = (field: string) => cn(inputCls, missing[field] && "border-red-500/60 focus:border-red-500/70");
 
   const runTest = async (): Promise<boolean> => {
     if (!baseUrl.trim() || !model.trim() || !key.trim()) {
@@ -131,8 +157,10 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   };
 
   const save = async () => {
-    if (!name.trim() || !baseUrl.trim() || !model.trim() || !key.trim()) {
-      setError("Fill in all fields (name, base URL, model, API key).");
+    const m = missingNow();
+    setMissing(m);
+    if (Object.values(m).some(Boolean)) {
+      setError(`Fill in: ${missingSummary(m)}, then verify.`);
       setStep(1);
       return;
     }
@@ -297,27 +325,45 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
 
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Model details</p>
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-background/30 p-3">
-                <input className={inputCls} placeholder="Give this model a name" value={name} onChange={(e) => setName(e.target.value)} />
-                <input className={inputCls} placeholder="API base URL · https://your-provider.example.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
-                <input className={inputCls} placeholder="Model ID · your-model-v1" value={model} onChange={(e) => setModel(e.target.value)} />
-                <div className="relative">
-                  <input
-                    ref={firstInputRef}
-                    className={cn(inputCls, "pe-16 font-mono")}
-                    type={showKey ? "text" : "password"}
-                    placeholder="API key"
-                    value={key}
-                    onChange={(e) => setKey(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {showKey ? "Hide" : "Show"}
-                  </button>
+                <div>
+                  <input className={fieldCls("name")} placeholder="Give this model a name" value={name} onChange={(e) => { setName(e.target.value); setMissing((m) => ({ ...m, name: false })); }} />
+                  {missing.name && <p className="mt-1 text-[10.5px] font-medium text-red-400">Name is required.</p>}
+                </div>
+                <div>
+                  <input className={fieldCls("baseUrl")} placeholder="API base URL · https://your-provider.example.com/v1" value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); setMissing((m) => ({ ...m, baseUrl: false })); }} />
+                  {missing.baseUrl && <p className="mt-1 text-[10.5px] font-medium text-red-400">Base URL is required.</p>}
+                </div>
+                <div>
+                  <input className={fieldCls("model")} placeholder="Model ID · your-model-v1" value={model} onChange={(e) => { setModel(e.target.value); setMissing((m) => ({ ...m, model: false })); }} />
+                  {missing.model && <p className="mt-1 text-[10.5px] font-medium text-red-400">Model ID is required.</p>}
+                </div>
+                <div>
+                  <div className="relative">
+                    <input
+                      ref={firstInputRef}
+                      className={cn(fieldCls("key"), "pe-16 font-mono")}
+                      type={showKey ? "text" : "password"}
+                      placeholder="API key"
+                      value={key}
+                      onChange={(e) => { setKey(e.target.value); setMissing((m) => ({ ...m, key: false })); }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((v) => !v)}
+                      className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {showKey ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {missing.key && <p className="mt-1 text-[10.5px] font-medium text-red-400">API key is required.</p>}
                 </div>
               </div>
+
+              {Object.values(missing).some(Boolean) && (
+                <p className="mt-2 text-[11px] font-medium text-red-400">
+                  Missing: {missingSummary(missing)}.
+                </p>
+              )}
 
               {error && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
@@ -389,7 +435,23 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
               <button type="button" onClick={() => setShowLegend((v) => !v)} className="shrink-0 px-2 text-xs font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground">
                 How results work
               </button>
-              <button type="button" onClick={() => void (async () => { await runTest(); setStep(2); })()} disabled={testing} className={primaryBtnCls}>
+              <button
+                type="button"
+                onClick={() =>
+                  void (async () => {
+                    const m = missingNow();
+                    setMissing(m);
+                    if (Object.values(m).some(Boolean)) {
+                      setError(`Fill in: ${missingSummary(m)}, then test.`);
+                      return;
+                    }
+                    await runTest();
+                    setStep(2);
+                  })()
+                }
+                disabled={testing}
+                className={primaryBtnCls}
+              >
                 {testing ? (testStage === "encrypting" ? "Encrypting…" : "Sending…") : "Test & verify"}
               </button>
             </div>
