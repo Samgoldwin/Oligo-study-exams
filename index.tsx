@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './tailwind.css';
 import './styles.css';
 
 // Simple Error Boundary component for production crash handling
