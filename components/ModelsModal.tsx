@@ -11,6 +11,7 @@ import { encryptWithPublicKey } from "@/lib/crypto";
 import { cn } from "@/lib/utils";
 
 type TestStage = "idle" | "encrypting" | "sending" | "done";
+type Step = 1 | 2 | 3;
 
 const VERDICT_META: Record<
   ModelTestVerdict,
@@ -31,14 +32,6 @@ const TONE_CLS: Record<"ok" | "bad" | "warn" | "muted", string> = {
   muted: "border-border bg-muted/30 text-muted-foreground",
 };
 
-function hostOf(baseUrl: string): string {
-  try {
-    return new URL(baseUrl).host.replace(/^www\./, "");
-  } catch {
-    return baseUrl;
-  }
-}
-
 function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
@@ -47,7 +40,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const [models, setModels] = useState<CustomModelMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -55,6 +47,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const [key, setKey] = useState("");
   const [showKey, setShowKey] = useState(false);
 
+  const [step, setStep] = useState<Step>(1);
   const [testStage, setTestStage] = useState<TestStage>("idle");
   const [testResult, setTestResult] = useState<ModelTestResult | null>(null);
   const [showLegend, setShowLegend] = useState(false);
@@ -62,6 +55,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const testing = testStage === "encrypting" || testStage === "sending";
   const currentSig = sigOf(baseUrl, model, key);
   const isVerified = verifiedSig === currentSig && currentSig !== "||" && Boolean(baseUrl && model && key);
+  const savedSigRef = useRef<string | null>(null);
 
   const firstInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,11 +71,12 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   useEffect(() => {
     if (open) {
       setError(null);
-      setOk(null);
       setTestStage("idle");
       setTestResult(null);
       setShowLegend(false);
       setVerifiedSig(null);
+      savedSigRef.current = null;
+      setStep(1);
       void refresh();
       const t = setTimeout(() => firstInputRef.current?.focus(), 60);
       return () => clearTimeout(t);
@@ -96,7 +91,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
       return false;
     }
     setError(null);
-    setOk(null);
     setTestResult(null);
     setTestStage("encrypting");
     try {
@@ -118,31 +112,22 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const save = async () => {
     if (!name.trim() || !baseUrl.trim() || !model.trim() || !key.trim()) {
       setError("Fill in all fields (name, base URL, model, API key).");
+      setStep(1);
       return;
     }
     if (!isVerified) {
       const passed = await runTest();
-      if (!passed) {
-        setError("Connection not verified. Fix the issue above, then save again.");
-        return;
-      }
+      if (!passed) return; // result is shown on the verify step
     }
     setBusy(true);
     setError(null);
-    setOk(null);
     try {
       const { publicKey } = await syncAI.getPublicKey();
       const encryptedKey = await encryptWithPublicKey(publicKey, key.trim());
       await syncAI.saveCustomModel({ name: name.trim(), baseUrl: baseUrl.trim(), model: model.trim(), encryptedKey });
-      setKey("");
-      setName("");
-      setBaseUrl("");
-      setModel("");
-      setTestStage("idle");
-      setTestResult(null);
-      setVerifiedSig(null);
-      setOk("Model saved. Your API key is encrypted — we never see it in plaintext.");
+      savedSigRef.current = currentSig;
       await refresh();
+      setStep(3);
     } catch (e) {
       setError(e instanceof SyncAIApiError || e instanceof Error ? e.message : "Could not save the model.");
     } finally {
@@ -163,11 +148,32 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     }
   };
 
+  const resetForm = () => {
+    setName("");
+    setBaseUrl("");
+    setModel("");
+    setKey("");
+    setTestStage("idle");
+    setTestResult(null);
+    setVerifiedSig(null);
+    setError(null);
+    setStep(1);
+    setTimeout(() => firstInputRef.current?.focus(), 60);
+  };
+
   const inputCls =
     "w-full rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30 focus:bg-background";
   const secondaryBtnCls =
-    "flex h-9 flex-1 items-center justify-center rounded-xl border border-border bg-muted/40 text-[13px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50";
+    "flex h-9 items-center justify-center rounded-xl border border-border bg-muted/40 px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50";
+  const primaryBtnCls =
+    "flex h-9 flex-1 items-center justify-center rounded-xl bg-foreground px-4 text-[13px] font-semibold text-background transition-colors hover:opacity-90 disabled:opacity-50";
   const meta = testResult ? VERDICT_META[testResult.verdict] : null;
+
+  const steps: Array<{ n: Step; label: string }> = [
+    { n: 1, label: "Connect" },
+    { n: 2, label: "Verify" },
+    { n: 3, label: "Done" },
+  ];
 
   return (
     <div
@@ -183,7 +189,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
         <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/20 md:hidden" />
 
         {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-4 px-5 pt-4 pb-2">
+        <div className="flex shrink-0 items-start justify-between gap-4 px-5 pt-4 pb-3">
           <div>
             <h3 className="text-[15px] font-semibold tracking-tight text-popover-foreground">My models</h3>
             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
@@ -200,121 +206,203 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-1">
-          {/* Connected models */}
-          {models.length > 0 && (
-            <div className="mb-5">
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Connected</p>
-              <div className="flex flex-col gap-2">
-                {models.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 rounded-xl border border-border bg-background/40 px-3.5 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-foreground">{m.name}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">{m.model} · {hostOf(m.baseUrl)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void remove(m.id)}
-                      disabled={busy}
-                      className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+        {/* Step indicator */}
+        <div className="shrink-0 border-b border-border/70 px-5 pb-3">
+          <div className="flex items-center gap-2">
+            {steps.map((s, i) => {
+              const state = step > s.n ? "done" : step === s.n ? "active" : "todo";
+              return (
+                <React.Fragment key={s.n}>
+                  {i > 0 && <div className={cn("h-px flex-1", step > s.n ? "bg-foreground/30" : "bg-border")} />}
+                  <button
+                    type="button"
+                    onClick={() => s.n < step && setStep(s.n)}
+                    disabled={s.n >= step}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                      state === "active" && "bg-accent text-accent-foreground",
+                      state === "done" && "text-foreground/80 hover:bg-accent/60",
+                      state === "todo" && "text-muted-foreground/70",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-4 items-center justify-center rounded-full text-[9px] font-bold",
+                        state === "active" ? "bg-foreground text-background" : state === "done" ? "bg-foreground/20 text-foreground" : "bg-muted text-muted-foreground",
+                      )}
                     >
-                      Remove
-                    </button>
+                      {state === "done" ? "✓" : s.n}
+                    </span>
+                    {s.label}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-4">
+          {/* Step 1 — Connect */}
+          {step === 1 && (
+            <div className="animate-in fade-in-0">
+              {models.length > 0 && (
+                <div className="mb-5">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Connected</p>
+                  <div className="flex flex-col gap-2">
+                    {models.map((m) => (
+                      <div key={m.id} className="flex items-center gap-3 rounded-xl border border-border bg-background/40 px-3.5 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-foreground">{m.name}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{m.model} · {m.baseUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void remove(m.id)}
+                          disabled={busy}
+                          className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
+
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Model details</p>
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-background/30 p-3">
+                <input className={inputCls} placeholder="Give this model a name" value={name} onChange={(e) => setName(e.target.value)} />
+                <input className={inputCls} placeholder="API base URL · https://your-provider.example.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+                <input className={inputCls} placeholder="Model ID · your-model-v1" value={model} onChange={(e) => setModel(e.target.value)} />
+                <div className="relative">
+                  <input
+                    ref={firstInputRef}
+                    className={cn(inputCls, "pe-16 font-mono")}
+                    type={showKey ? "text" : "password"}
+                    placeholder="API key"
+                    value={key}
+                    onChange={(e) => setKey(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((v) => !v)}
+                    className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {showKey ? "Hide" : "Show"}
+                  </button>
+                </div>
               </div>
+
+              {error && (
+                <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
+              )}
             </div>
           )}
 
-          {/* Add a model */}
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Connect a model</p>
-          <div className="flex flex-col gap-2 rounded-xl border border-border bg-background/30 p-3">
-            <input className={inputCls} placeholder="Give this model a name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className={inputCls} placeholder="API base URL · https://your-provider.example.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
-            <input className={inputCls} placeholder="Model ID · your-model-v1" value={model} onChange={(e) => setModel(e.target.value)} />
-            <div className="relative">
-              <input
-                className={cn(inputCls, "pe-16 font-mono")}
-                type={showKey ? "text" : "password"}
-                placeholder="API key"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {showKey ? "Hide" : "Show"}
-              </button>
-            </div>
-          </div>
+          {/* Step 2 — Verify */}
+          {step === 2 && (
+            <div className="animate-in fade-in-0">
+              <p className="text-sm font-medium text-foreground">Verify the connection</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                We send a tiny request to <span className="font-medium text-foreground">{model.trim() || "your model"}</span> using an encrypted key. Nothing is saved yet.
+              </p>
 
-          {/* Actions */}
-          <div className="mt-3 flex items-center gap-2">
-            <button type="button" onClick={() => void runTest()} disabled={testing} className={secondaryBtnCls}>
-              {testing ? (testStage === "encrypting" ? "Encrypting…" : "Sending…") : "Test connection"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowLegend((v) => !v)}
-              className="shrink-0 rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground"
-            >
-              How results work
-            </button>
-          </div>
+              {testing && (
+                <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3.5 py-2.5 text-[12.5px] text-indigo-200">
+                  <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span>{testStage === "encrypting" ? "Encrypting your API key…" : "Sending request securely…"}</span>
+                </div>
+              )}
 
-          {isVerified && (
-            <p className="mt-2 text-[11px] font-medium text-emerald-400">Verified — connection is working.</p>
-          )}
+              {testResult && meta && (
+                <div className={cn("mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[12.5px]", TONE_CLS[meta.tone])}>
+                  <span className="mt-0.5 shrink-0 text-sm font-bold">{meta.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {testResult.status ?? "Unknown"} · {meta.title} {meta.tone === "ok" && testResult.ms != null && `(${testResult.ms}ms)`}
+                    </p>
+                    <p className="mt-0.5 leading-relaxed opacity-90">{testResult.message ?? meta.detail}</p>
+                  </div>
+                </div>
+              )}
 
-          {testResult && meta && (
-            <div className={cn("mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[12.5px]", TONE_CLS[meta.tone])}>
-              <span className="mt-0.5 shrink-0 text-sm font-bold">{meta.icon}</span>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">
-                  {testResult.status ?? "Unknown"} · {meta.title} {meta.tone === "ok" && testResult.ms != null && `(${testResult.ms}ms)`}
-                </p>
-                <p className="mt-0.5 leading-relaxed opacity-90">{testResult.message ?? meta.detail}</p>
-              </div>
+              {isVerified && !testing && (
+                <p className="mt-3 text-[12px] font-medium text-emerald-400">Verified — this model is ready to save.</p>
+              )}
+
+              {showLegend && (
+                <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
+                  <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
+                    <li><span className="font-semibold text-emerald-400">200:</span> ✓ <span className="font-medium text-foreground">Success!</span> The API key is valid and working perfectly.</li>
+                    <li><span className="font-semibold text-red-400">401/403:</span> ✗ <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
+                    <li><span className="font-semibold text-amber-300">402:</span> ⚠️ <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
+                    <li><span className="font-semibold text-amber-300">429:</span> ⚠️ <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
+                    <li><span className="font-semibold text-red-400">500/502/503:</span> ✗ <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
+                    <li><span className="font-semibold text-muted-foreground">Unknown:</span> — — Testing is not yet supported for this specific provider.</li>
+                  </ul>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
+              )}
             </div>
           )}
 
-          {showLegend && (
-            <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
-              <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
-                <li><span className="font-semibold text-emerald-400">200:</span> ✓ <span className="font-medium text-foreground">Success!</span> The API key is valid and working perfectly.</li>
-                <li><span className="font-semibold text-red-400">401/403:</span> ✗ <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
-                <li><span className="font-semibold text-amber-300">402:</span> ⚠️ <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
-                <li><span className="font-semibold text-amber-300">429:</span> ⚠️ <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
-                <li><span className="font-semibold text-red-400">500/502/503:</span> ✗ <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
-                <li><span className="font-semibold text-muted-foreground">Unknown:</span> — — Testing is not yet supported for this specific provider.</li>
-              </ul>
+          {/* Step 3 — Done */}
+          {step === 3 && (
+            <div className="animate-in fade-in-0 py-4 text-center">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-2xl text-emerald-400">✓</div>
+              <p className="mt-3 text-base font-semibold text-foreground">Model connected</p>
+              <p className="mx-auto mt-1 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">{name.trim() || "Your model"}</span> is saved and ready to use in chat. Your API key stays encrypted.
+              </p>
             </div>
-          )}
-
-          {error && (
-            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
-          )}
-          {ok && (
-            <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-300">{ok}</div>
           )}
         </div>
 
         {/* Footer */}
         <div className="shrink-0 border-t border-border/70 bg-background/40 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={busy || testing}
-            className="flex h-10 w-full items-center justify-center rounded-xl bg-foreground text-sm font-semibold text-background transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? "Saving…" : "Save model"}
-          </button>
-          <p className="mt-1.5 text-center text-[10.5px] text-muted-foreground/80">
-            {isVerified ? "Verified — safe to save." : "We verify the connection before saving."}
-          </p>
+          {step === 1 && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setShowLegend((v) => !v)} className="shrink-0 px-2 text-xs font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground">
+                How results work
+              </button>
+              <button type="button" onClick={() => void (async () => { await runTest(); setStep(2); })()} disabled={testing} className={primaryBtnCls}>
+                {testing ? (testStage === "encrypting" ? "Encrypting…" : "Sending…") : "Test & verify"}
+              </button>
+            </div>
+          )}
+          {step === 2 && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setStep(1)} disabled={testing || busy} className={secondaryBtnCls}>
+                Back
+              </button>
+              <button type="button" onClick={() => setShowLegend((v) => !v)} className="shrink-0 px-2 text-xs font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground">
+                How results work
+              </button>
+              {isVerified ? (
+                <button type="button" onClick={() => void save()} disabled={busy} className={primaryBtnCls}>
+                  {busy ? "Saving…" : "Save model"}
+                </button>
+              ) : (
+                <button type="button" onClick={() => void runTest()} disabled={testing} className={primaryBtnCls}>
+                  {testing ? (testStage === "encrypting" ? "Encrypting…" : "Sending…") : "Try again"}
+                </button>
+              )}
+            </div>
+          )}
+          {step === 3 && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={resetForm} className={secondaryBtnCls}>
+                Add another
+              </button>
+              <button type="button" onClick={onClose} className={primaryBtnCls}>
+                Done
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
