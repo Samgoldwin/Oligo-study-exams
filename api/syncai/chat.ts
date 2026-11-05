@@ -4,6 +4,9 @@ import { requirePost, getClientIp, sendError, asString, asStringArray, asNumber 
 import { searchResources, RESOURCE_TYPE_LABELS } from '../_lib/resources';
 import { searchYouTubeVideos } from '../_lib/youtube';
 import { runChatCompletion, AiUnavailableError } from '../_lib/groq';
+import { resolveAuth } from '../_lib/auth';
+import { getCustomModel, resolveCustomApiKey } from '../_lib/customModels';
+import { callCustomOpenAI } from '../_lib/openaiCompat';
 import {
   buildSystemPrompt,
   buildConversationalPrompt,
@@ -103,6 +106,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const history = parseHistory(body.history);
   const document = parseDocument(body.document);
   const model = asString(body.model, 60) ?? undefined;
+  const customModelId = asString(body.custom_model_id ?? body.customModelId, 120);
+  const auth = await resolveAuth(req);
   const conversational = isConversationalMessage(message);
 
   /* ---------- Step 1: VTUSync retrieval (mandatory, retrieval-first) ----------
@@ -193,12 +198,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   /* ---------- Step 4: LLM ---------- */
   let answer: string;
   try {
-    answer = await runChatCompletion({
-      messages,
-      maxTokens: marks === 15 ? 2600 : marks === 10 ? 2200 : marks ? 1300 : 1600,
-      temperature: marks ? 0.25 : 0.35,
-      model,
-    });
+    // BYO model: decrypt the user's key in-memory and call their provider.
+    if (customModelId && auth.uid) {
+      const record = await getCustomModel(auth.uid, customModelId);
+      if (!record) throw new AiUnavailableError('Custom model not found.');
+      const apiKey = await resolveCustomApiKey(auth.uid, customModelId);
+      if (!apiKey) throw new AiUnavailableError('Custom model key could not be decrypted.');
+      answer = await callCustomOpenAI({
+        baseUrl: record.baseUrl,
+        apiKey,
+        model: record.model,
+        messages,
+        maxTokens: marks === 15 ? 2600 : marks === 10 ? 2200 : marks ? 1300 : 1600,
+        temperature: marks ? 0.25 : 0.35,
+      });
+    } else {
+      answer = await runChatCompletion({
+        messages,
+        maxTokens: marks === 15 ? 2600 : marks === 10 ? 2200 : marks ? 1300 : 1600,
+        temperature: marks ? 0.25 : 0.35,
+        model,
+      });
+    }
   } catch (err) {
     if (err instanceof AiUnavailableError) {
       console.error('SyncAI AI unavailable:', err.message);

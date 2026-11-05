@@ -132,14 +132,18 @@ export function ModelPicker({
   models,
   selectedId,
   onSelect,
+  customModels,
+  onSelectCustom,
   className,
 }: {
   models: Model[]
   selectedId: string | null
   onSelect: (id: string) => void
+  customModels?: Model[]
+  onSelectCustom?: (id: string) => void
   className?: string
 }) {
-  if (models.length === 0) return null
+  if (models.length === 0 && !customModels?.length) return null
   const selected = models.find((m) => m.id === selectedId) ?? models.find((m) => m.current) ?? models[0]
 
   return (
@@ -196,6 +200,24 @@ export function ModelPicker({
         <p className="px-2.5 py-1.5 text-[10px] leading-snug text-muted-foreground">
           SyncAI uses the selected model for every answer in this chat.
         </p>
+        {customModels && customModels.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>My models</DropdownMenuLabel>
+            {customModels.map((cm: Model) => (
+              <DropdownMenuCheckboxItem
+                key={cm.id}
+                checked={selectedId === cm.id}
+                onCheckedChange={() => {
+                  if (selectedId !== cm.id) onSelectCustom?.(cm.id)
+                }}
+                className="cursor-pointer"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium">{cm.label}</span>
+              </DropdownMenuCheckboxItem>
+            ))}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

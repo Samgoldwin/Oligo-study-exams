@@ -16,6 +16,24 @@ import type {
 
 const REQUEST_TIMEOUT_MS = 60_000;
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+export interface CustomModelMeta {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
+  createdAt: number;
+}
+
 export class SyncAIApiError extends Error {
   constructor(
     public status: number,
@@ -30,12 +48,23 @@ export class SyncAIApiError extends Error {
 }
 
 async function postJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
+  return requestJson<TResponse>('POST', path, body);
+}
+
+async function requestJson<TResponse>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  body?: unknown
+): Promise<TResponse> {
   let response: Response;
   try {
     response = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
@@ -66,6 +95,27 @@ async function postJson<TResponse>(path: string, body: unknown): Promise<TRespon
 export const syncAI = {
   chat(request: ChatRequest): Promise<ChatResponse> {
     return postJson<ChatResponse>('/api/syncai/chat', request);
+  },
+
+  getPublicKey(): Promise<{ publicKey: string }> {
+    return requestJson('GET', '/api/syncai/pubkey');
+  },
+
+  listCustomModels(): Promise<{ models: CustomModelMeta[] }> {
+    return requestJson('GET', '/api/syncai/models/custom');
+  },
+
+  saveCustomModel(input: { name: string; baseUrl: string; model: string; encryptedKey: string }): Promise<{ model: CustomModelMeta }> {
+    return postJson('/api/syncai/models/custom', {
+      name: input.name,
+      base_url: input.baseUrl,
+      model: input.model,
+      encrypted_key: input.encryptedKey,
+    });
+  },
+
+  deleteCustomModel(id: string): Promise<{ ok: boolean }> {
+    return requestJson('DELETE', '/api/syncai/models/custom', { id });
   },
 
   searchResources(params: {

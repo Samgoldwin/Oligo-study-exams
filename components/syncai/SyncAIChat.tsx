@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, X, ChevronRight, Paperclip, Loader2 } from 'lucide-react';
+import { FileText, X, ChevronRight, KeyRound, Paperclip, Loader2 } from 'lucide-react';
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
@@ -79,7 +79,10 @@ function docPayloadOf(conversation: Conversation | null, attachedDoc: PdfExtract
   return null;
 }
 
-export const SyncAIChat: React.FC = () => {
+export const SyncAIChat: React.FC<{
+  onManageModels?: () => void;
+  userUid?: string | null;
+}> = ({ onManageModels, userUid }) => {
   const [context, setContext] = useState<AcademicContext>(() => loadContext());
   const [view, setView] = useState<"chat" | "pyq">("chat");
   const [conversations, setConversations] = useState<Conversation[]>(() => listConversations());
@@ -221,6 +224,7 @@ export const SyncAIChat: React.FC = () => {
           marks: marksValue,
           document: docPayload,
           model: modelRef.current ?? undefined,
+          custom_model_id: customModelRef.current ?? undefined,
         });
 
         const assistantMessage: ChatMessage = {
@@ -431,6 +435,12 @@ export const SyncAIChat: React.FC = () => {
   const [models, setModels] = useState<
     Array<{ id: string; label: string; current: boolean }>
   >([]);
+  const [customModels, setCustomModels] = useState<
+    Array<{ id: string; label: string }>
+  >([]);
+  const [customModelId, setCustomModelId] = useState<string | null>(null);
+  const customModelRef = useRef<string | null>(null);
+  customModelRef.current = customModelId;
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -455,6 +465,28 @@ export const SyncAIChat: React.FC = () => {
     };
   }, []);
 
+  // Load the user's BYO models when signed in.
+  useEffect(() => {
+    if (!userUid) {
+      setCustomModels([]);
+      setCustomModelId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await syncAI.listCustomModels();
+        if (cancelled) return;
+        setCustomModels(res.models.map((m) => ({ id: `custom:${m.id}`, label: `${m.name} · ${m.model}` })));
+      } catch {
+        /* not signed in / unavailable — ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userUid]);
+
   const ComposerAttachment = useMemo(() => {
     const Attach = () => (
       <button
@@ -475,17 +507,25 @@ export const SyncAIChat: React.FC = () => {
   // metadata so the student sees labels + current/default markers.
   const ComposerExtra = useMemo(() => {
     const ModelSelector = () => {
-      if (models.length === 0) return null;
+      if (models.length === 0 && customModels.length === 0) return null;
       return (
         <ModelPicker
           models={models}
-          selectedId={model}
-          onSelect={(id) => setModel(id)}
+          selectedId={customModelId ? `custom:${customModelId}` : model}
+          onSelect={(id) => {
+            setCustomModelId(null);
+            setModel(id);
+          }}
+          customModels={customModels}
+          onSelectCustom={(id) => {
+            setModel(null);
+            setCustomModelId(id.startsWith("custom:") ? id.slice(7) : id);
+          }}
         />
       );
     };
     return ModelSelector;
-  }, [model, models]);
+  }, [model, customModelId, customModels]);
 
   const threadComponents = useMemo(
     () => ({
@@ -540,6 +580,16 @@ export const SyncAIChat: React.FC = () => {
               </span>
             </nav>
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              {onManageModels && (
+                <button
+                  type="button"
+                  onClick={onManageModels}
+                  className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <KeyRound size={14} />
+                  <span className="hidden sm:inline">My models</span>
+                </button>
+              )}
               <span className="hidden rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:inline">
                 {view === "pyq" ? "AI-Generated" : "AI Chat"}
               </span>

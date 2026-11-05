@@ -169,13 +169,13 @@ Keep estimatedHours modest, and order studySchedule so day 1 is the most importa
     // known for clean JSON output, before giving up.
     if (studyPlan === null) {
       console.warn('Analyze: first response unusable (default model). sample:', raw.slice(0, 200));
-      raw = await complete(DEFAULT_MODEL, [{ role: 'user', content: prompt + STRICT_SUFFIX }], 7000);
+      raw = await complete(DEFAULT_MODEL, [{ role: 'user', content: prompt + STRICT_SUFFIX }], 4500);
       studyPlan = extractJson(raw);
       if (isEmptyPlan(studyPlan)) studyPlan = null;
     }
     if (studyPlan === null) {
       console.warn('Analyze: strict retry unusable; trying fallback model. sample:', raw.slice(0, 160));
-      raw = await complete(FALLBACK_MODEL, [{ role: 'user', content: prompt + STRICT_SUFFIX }], 7000);
+      raw = await complete(FALLBACK_MODEL, [{ role: 'user', content: prompt + STRICT_SUFFIX }], 4500);
       studyPlan = extractJson(raw);
       if (isEmptyPlan(studyPlan)) studyPlan = null;
     }

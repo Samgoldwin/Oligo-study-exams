@@ -120,6 +120,8 @@ export interface ChatRequest {
   document?: DocumentContext | null;
   /** Chat model chosen in the composer picker; absent = server default. */
   model?: string;
+  /** User's saved BYO model id (Firebase uid-scoped). */
+  custom_model_id?: string;
 }
 
 export interface ChatSource {
