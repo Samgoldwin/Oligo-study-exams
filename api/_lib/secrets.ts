@@ -19,6 +19,12 @@ import crypto from 'node:crypto';
 const PUBLIC_ENV = process.env.PUBLIC_RSA_KEY?.trim();
 const PRIVATE_ENV = process.env.PRIVATE_RSA_KEY?.trim();
 
+/** Normalize single-line PEM (with escaped \n) to multi-line PEM. */
+function expandPem(value: string): string {
+  if (value.includes('\\n')) return value.replace(/\\n/g, '\n');
+  return value;
+}
+
 interface KeyPair {
   publicPem: string;
   privatePem: string;
@@ -39,11 +45,11 @@ function getEphemeral(): KeyPair {
 }
 
 export function getPublicKeyPem(): string {
-  return PUBLIC_ENV || getEphemeral().publicPem;
+  return PUBLIC_ENV ? expandPem(PUBLIC_ENV) : getEphemeral().publicPem;
 }
 
 export function getPrivateKeyPem(): string {
-  return PRIVATE_ENV || getEphemeral().privatePem;
+  return PRIVATE_ENV ? expandPem(PRIVATE_ENV) : getEphemeral().privatePem;
 }
 
 /** Decrypt an RSA-OAEP ciphertext (base64) → plaintext. */

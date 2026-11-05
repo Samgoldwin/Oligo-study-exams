@@ -110,6 +110,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const auth = await resolveAuth(req);
   const conversational = isConversationalMessage(message);
 
+  // When Firebase auth is configured, chat requires a signed-in user.
+  if (process.env.FIREBASE_SERVICE_ACCOUNT && !auth.uid) {
+    return res.status(401).json({ error: 'unauthorized', message: 'Sign in to chat with SyncAI.' });
+  }
+
   /* ---------- Step 1: VTUSync retrieval (mandatory, retrieval-first) ----------
    * Conversational messages (hi, thanks, etc.) skip retrieval entirely —
    * they need no grounding and must not trigger resource cards. */

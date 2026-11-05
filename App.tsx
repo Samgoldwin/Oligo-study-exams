@@ -13,7 +13,6 @@ import { setAuthToken } from "./services/syncAIService";
 const App: React.FC = () => {
   const [userUid, setUserUid] = useState<string | null>(null);
   const [ready, setReady] = useState(!firebaseConfigured);
-  const [guest, setGuest] = useState(false);
   const [modelsOpen, setModelsOpen] = useState(false);
 
   useEffect(() => {
@@ -33,10 +32,10 @@ const App: React.FC = () => {
     return <div className="min-h-dvh bg-background" />;
   }
 
-  if (firebaseConfigured && !userUid && !guest) {
+  if (firebaseConfigured && !userUid) {
     return (
       <TooltipProvider>
-        <AuthScreen onCancelled={() => setGuest(true)} />
+        <AuthScreen />
       </TooltipProvider>
     );
   }

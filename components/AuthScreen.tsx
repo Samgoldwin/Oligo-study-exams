@@ -3,7 +3,7 @@ import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { firebaseConfigured, signIn, signUp, signInWithGoogle } from "@/services/firebaseClient";
 import { SyncAILogo } from "@/components/syncai/SyncAILogo";
 
-export const AuthScreen: React.FC<{ onCancelled: () => void }> = ({ onCancelled }) => {
+export const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -123,10 +123,7 @@ export const AuthScreen: React.FC<{ onCancelled: () => void }> = ({ onCancelled 
         </div>
 
         <p className="mt-4 text-center text-[11px] text-muted-foreground">
-          You can also continue as a guest.
-          <button type="button" onClick={onCancelled} className="ml-1.5 font-semibold text-indigo-300 hover:text-indigo-200">
-            Skip for now
-          </button>
+          You must be signed in to use SyncAI.
         </p>
       </div>
     </div>
