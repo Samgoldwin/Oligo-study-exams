@@ -168,7 +168,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
    * cheerio (MIT) scraping vtusync.in directly, with Jina Reader (free, no key)
    * as the fallback when a page is JS-heavy or blocked. Hard-capped at 8k
    * chars per page so this never blows the model budget. */
+  // Live scrape items -> real cards (so missing subjects like BCS701 still show VTUSync links)
   let liveScrape = '';
+  let liveResourceItems: ResourceItem[] = [];
   if (!conversational && resources.length < 2 && shouldScrape(message)) {
     try {
       const scraped = await scrapeVTUSync({
@@ -183,6 +185,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       console.error('Live VTUSync scrape failed:', err);
     }
+  }
+
+  // If still thin after scrape, mint a resource card from the code (BCS701 case).
+  if (!conversational && resources.length === 0 && context?.subjectCode) {
+    try {
+      const { scrapeToResourceItems } = await import('../_lib/scrape');
+      const items = await scrapeToResourceItems(context.subjectCode, { subject: context.subject });
+      if (items.length) {
+        resources = items;
+        liveResourceItems = items;
+      }
+    } catch (err) {
+      console.error('Live resource card mint failed:', err);
+    }
+  } else if (liveScrape && resources.length === 0 && context?.subjectCode) {
+    // Cheap synthetic card when scrape succeeded but we have no title extraction.
+    liveResourceItems = [{
+      id: `live-${context.subjectCode.toLowerCase()}`,
+      title: `${context.subjectCode} — VTUSync page`,
+      type: 'notes',
+      subject: context.subject || context.subjectCode,
+      subjectCode: context.subjectCode,
+      branch: 'CSE/ISE/AIML',
+      semester: 7,
+      scheme: '2022',
+      tags: [context.subjectCode.toLowerCase()],
+      fileUrl: `https://vtusync.in/?s=${encodeURIComponent(context.subjectCode)}`,
+      source: 'VTUSync',
+    }];
+    resources = liveResourceItems;
   }
 
   /* ---------- Step 2: YouTube — only if needed/requested ----------
@@ -282,6 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         message: 'The AI explanation is unavailable right now — but the VTUSync resources found for your question are listed below.',
         related_resources: nonPyqResources,
         pyq_resources: pyqResources,
+        live_scrape: liveScrape || null,
       });
     }
     console.error('SyncAI AI error:', err);

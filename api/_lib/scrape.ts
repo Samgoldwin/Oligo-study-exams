@@ -15,6 +15,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import type { ResourceItem } from '../../types';
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_PAGE_CHARS = 8_000; // hard cap per scraped page fed to the model
@@ -171,6 +172,57 @@ export async function scrapeVTUSync(opts: ScrapeOptions): Promise<ScrapeResult> 
   cache.set(cacheKey, { expiresAt: now + CACHE_TTL_MS, markdown: pages.join('\n\n---\n\n'), links: urls });
 
   return { pages, error: pages.length ? null : lastError || 'no_results', usedJina };
+}
+
+/**
+ * BCS701 / missing-subject fallback: scrape vtusync.in's own search and
+ * build ResourceItems out of real result pages so the chat cards link to
+ * the actual notes page instead of the model hallucinating a summary.
+ */
+export async function scrapeToResourceItems(
+  subjectCode: string,
+  opts: { subject?: string | null } = {},
+): Promise<ResourceItem[]> {
+  const code = (subjectCode || '').trim().toUpperCase();
+  if (!code) return [];
+  const url = `${VTUSYNC_ROOT}/?s=${encodeURIComponent(code)}`;
+  let markdown = '';
+  try {
+    markdown = await fetchCheerioMarkdown(url);
+  } catch {
+    try {
+      markdown = await fetchJinaMarkdown(url);
+    } catch {
+      return [];
+    }
+  }
+  if (!markdown || markdown.length < 80) return [];
+
+  // Best-effort: derive a real title from the scraped page itself.
+  const lines = markdown
+    .split(/[\n\r]+/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 12 && l.length < 180);
+  const titleLine = lines.find((l) => l.toLowerCase().includes(code.toLowerCase())) || lines[0] || `${code} — VTUSync page`;
+
+  // Infer opts.subject from the page if we didn't get one.
+  const subject = (opts.subject || code).toString();
+
+  const item: ResourceItem = {
+    id: `live-${code.toLowerCase()}`,
+    title: titleLine.slice(0, 160),
+    type: 'notes',
+    subject,
+    subjectCode: code,
+    branch: 'CSE/ISE/AIML',
+    semester: 7,
+    scheme: '2022',
+    module: undefined,
+    tags: [code.toLowerCase(), subject.toLowerCase()],
+    fileUrl: url,
+    source: 'VTUSync',
+  };
+  return [item];
 }
 
 /** Cheap guard: should we attempt live scraping for this query? */
