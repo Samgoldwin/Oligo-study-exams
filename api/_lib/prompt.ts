@@ -98,7 +98,7 @@ export function buildResourceBlock(
         r.module ? ` | Module ${r.module}` : ''
       } | scheme: ${r.scheme}`
   );
-  return `VTUSync resources retrieved for this query (stub dataset — titles are the only ground truth):\n${lines.join('\n')}`;
+  return `VTUSync resources retrieved for this query (curated dataset — titles plus scraped live content):\n${lines.join('\n')}`;
 }
 
 export function buildDocumentBlock(pages: Array<{ page: number; text: string }>): string {

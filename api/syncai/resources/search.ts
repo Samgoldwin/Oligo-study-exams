@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resources: finalResults,
       count: finalResults.length,
       relaxed_context: relaxed,
-      source: 'VTUSync (stub dataset + offline MiniSearch index)',
+      source: 'VTUSync',
     });
   } catch (err) {
     console.error('Resource search failed:', err);

@@ -145,14 +145,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const nonPyqResources = resources.filter((r) => r.type !== 'pyq');
 
   /* ---------- Step 1b: OFFLINE index (MiniSearch) — no network, no AI ----------
-   * ZeRO model, ZeRO network: if the stub search is empty, query the
+   * ZeRO model, ZeRO network: if the search is empty, query the
    * bundled MiniSearch index. This keeps getting notes working when the
-   * model provider is down OR the stub index misses a phrasing. */
+   * model provider is down OR the index misses a phrasing. */
   if (resources.length === 0 && !conversational) {
     try {
       const hits = searchOffline(message, 6);
       if (hits.length) {
-        // Keep the stub scores as the ranking anchor — augment with offline hits.
+        // Keep the scores as the ranking anchor — augment with offline hits.
         const hydrated = hydrateHits(hits);
         const merged = new Map<string, ResourceItem>();
         for (const r of [...resources, ...hydrated]) merged.set(r.id, r);

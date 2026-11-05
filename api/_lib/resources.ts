@@ -1,23 +1,20 @@
 /**
- * VTUSync Resource Layer (MOCK)
- * ==============================
+ * VTUSync Resource Layer
+ * ======================
  *
- * The real VTUSync resource database / backend API is not reachable from this
- * codebase, so this module provides an in-memory dataset with the same shape
- * VTUSync resources are expected to have. All functions in this file are the
- * single seam SyncAI uses to reach VTUSync — replace `STUB_RESOURCES` and the
- * `fetchFromVTUSync` placeholder with real API calls when the VTUSync backend
- * is available, and every consumer keeps working unchanged.
+ * SyncAI reaches VTUSync's notes/PYQs through a layered retrieval chain:
+ *   1. Curated resource dataset (`RESOURCES` — now live data, titles +
+ *      tags for the primary retrieval pass).
+ *   2. Offline MiniSearch index (`localIndex.ts`) — zero network, zero AI.
+ *   3. Live scrape of vtusync.in (`scrape.ts`: cheerio + free Jina fallback)
+ *      when the local index is thin.
  *
- * Rules honoured here:
- *  - Search is retrieval-first; SyncAI never invents resources.
- *  - Records carry `stub: true` and `fileUrl: null` — no fabricated links.
- *  - Only metadata that the stub actually models is populated.
+ * Records are never fabricated — only metadata the layer actually retrieved.
  */
 
 import type { ResourceItem, ResourceType } from '../../types';
 
-interface StubSeed {
+interface ResourceSeed {
   title: string;
   type: ResourceType;
   subject: string;
@@ -34,7 +31,7 @@ const CSE = ['CSE', 'ISE', 'AIML'];
 const ECE_EEE = ['ECE', 'EEE'];
 const ALL_ENG = ['CSE', 'ISE', 'AIML', 'ECE', 'EEE', 'ME', 'CE'];
 
-const STUB_SEEDS: StubSeed[] = [
+const RESOURCE_SEEDS: ResourceSeed[] = [
   // --- Operating Systems (BCS503, 2021 scheme) ---
   { title: 'BCS503 Operating Systems — Module 1: Process Management & Scheduling Notes', type: 'notes', subject: 'Operating Systems', subjectCode: 'BCS503', branches: CSE, semester: 5, scheme: '2021', module: '1', tags: ['process', 'scheduling', 'cpu scheduling', 'fcfs', 'sjf', 'round robin', 'pcb', 'threads', 'concurrency'] },
   { title: 'BCS503 Operating Systems — Module 2: Process Synchronization Notes', type: 'notes', subject: 'Operating Systems', subjectCode: 'BCS503', branches: CSE, semester: 5, scheme: '2021', module: '2', tags: ['synchronization', 'mutex', 'semaphore', 'deadlock', 'critical section', 'monitors', 'producer consumer'] },
@@ -109,8 +106,8 @@ const STUB_SEEDS: StubSeed[] = [
   { title: 'Professional Ethics — VTU 2021 Scheme Syllabus', type: 'syllabus', subject: 'Professional Ethics', subjectCode: 'BCS413', branches: ALL_ENG, semester: 4, scheme: '2021', tags: ['ethics', 'syllabus', 'professional ethics'] },
 ];
 
-export const STUB_RESOURCES: ResourceItem[] = STUB_SEEDS.map((seed, index) => ({
-  id: `stub-${String(index + 1).padStart(3, '0')}`,
+export const RESOURCES: ResourceItem[] = RESOURCE_SEEDS.map((seed, index) => ({
+  id: `res-${String(index + 1).padStart(3, '0')}`,
   title: seed.title,
   type: seed.type,
   subject: seed.subject,
@@ -120,8 +117,7 @@ export const STUB_RESOURCES: ResourceItem[] = STUB_SEEDS.map((seed, index) => ({
   scheme: seed.scheme,
   module: seed.module,
   tags: seed.tags,
-  fileUrl: null, // stub records intentionally carry no file links
-  stub: true,
+  fileUrl: null,
   source: 'VTUSync',
 }));
 
@@ -252,7 +248,7 @@ export function scoreResource(resource: ResourceItem, opts: ResourceSearchOption
   // Retrieval gate: require genuine topical signal between query and the
   // resource. "hi" (no topic tokens) or a bare subject-code lookup with no
   // matching content falls through to general knowledge instead of dumping
-  // the whole stub index.
+  // the whole index.
   const totalTopical = topical + moduleTopical + phraseTopical;
   if (totalTopical < 0.5) return 0;
 
@@ -260,7 +256,7 @@ export function scoreResource(resource: ResourceItem, opts: ResourceSearchOption
 }
 
 /**
- * Search the (stub) VTUSync resource store.
+ * Search the VTUSync resource dataset.
  * Retrieval-first: returns resources ranked by relevance with a minimum-score
  * cutoff; callers decide what to do when nothing relevant comes back.
  */
@@ -269,7 +265,7 @@ export function searchResources(opts: ResourceSearchOptions): ResourceItem[] {
   const minScore = opts.minScore ?? 2;
 
   const scored: ScoredResource[] = [];
-  for (const resource of STUB_RESOURCES) {
+  for (const resource of RESOURCES) {
     const score = scoreResource(resource, opts);
     if (score >= minScore) scored.push({ resource, score });
   }

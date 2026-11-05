@@ -1,18 +1,18 @@
 /**
  * Offline VTUSync index — MiniSearch (MIT, tiny, no build step).
  *
- * The stub resources in `resources.ts` are indexed here so search works
+ * The resources in `resources.ts` are indexed here so search works
  * instantly, with zero network, and zero model involvement. It mirrors the
  * TinySearch idea: a pre-built inverted index bundled with the app that
  * survives even when the AI provider or network is unreachable.
  *
- * Data source: `STUB_RESOURCES` (the same curated dataset used by the chat
+ * Data source: `RESOURCES` (the same curated dataset used by the chat
  * retrieval layer). To refresh, re-run `npm run index:vtusync` when the
- * stub seeds change.
+ * curated seeds change.
  */
 
 import MiniSearch from 'minisearch';
-import { STUB_RESOURCES } from './resources';
+import { RESOURCES } from './resources';
 import type { ResourceItem } from '../../types';
 
 interface Docs {
@@ -26,7 +26,7 @@ interface Docs {
   combined: string;
 }
 
-const docs: Docs[] = STUB_RESOURCES.map((r) => ({
+const docs: Docs[] = RESOURCES.map((r) => ({
   id: r.id,
   title: r.title,
   subject: r.subject,
@@ -81,8 +81,8 @@ export function warmOfflineIndex(): void {
 }
 
 // Re-export the source items so callers can hydrate hits without importing
-// the stub store directly.
+// the store directly.
 export function hydrateHits(hits: IndexedHit[]): ResourceItem[] {
-  const byId = new Map(STUB_RESOURCES.map((r) => [r.id, r]));
+  const byId = new Map(RESOURCES.map((r) => [r.id, r]));
   return hits.map((h) => byId.get(h.id)).filter((x): x is ResourceItem => Boolean(x));
 }

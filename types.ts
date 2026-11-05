@@ -73,9 +73,9 @@ export interface ResourceItem {
   scheme: string;
   module?: string;
   tags: string[];
-  /** SyncAI stub layer: mock records carry no real URL. */
+  /** Let the resource layer mark internal datasets; live pages omit it. */
   fileUrl: string | null;
-  stub: boolean;
+  stub?: boolean;
   source: 'VTUSync';
 }
 
