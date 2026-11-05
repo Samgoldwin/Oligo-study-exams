@@ -141,8 +141,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // PYQ-looking intent: keep papers in a separate section downstream.
-  const pyqResources = resources.filter((r) => r.type === 'pyq');
-  const nonPyqResources = resources.filter((r) => r.type !== 'pyq');
 
   /* ---------- Step 1b: OFFLINE index (MiniSearch) — no network, no AI ----------
    * ZeRO model, ZeRO network: if the search is empty, query the
@@ -188,34 +186,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // If still thin after scrape, mint a resource card from the code (BCS701 case).
-  if (!conversational && resources.length === 0 && context?.subjectCode) {
-    try {
-      const { scrapeToResourceItems } = await import('../_lib/scrape');
-      const items = await scrapeToResourceItems(context.subjectCode, { subject: context.subject });
-      if (items.length) {
-        resources = items;
-        liveResourceItems = items;
-      }
-    } catch (err) {
-      console.error('Live resource card mint failed:', err);
-    }
-  } else if (liveScrape && resources.length === 0 && context?.subjectCode) {
+  const subjectCode2 = context?.subjectCode?.trim() ?? '';
+  if (!conversational && resources.length === 0 && subjectCode2) {
     // Cheap synthetic card when scrape succeeded but we have no title extraction.
     liveResourceItems = [{
-      id: `live-${context.subjectCode.toLowerCase()}`,
-      title: `${context.subjectCode} — VTUSync page`,
+      id: `live-${subjectCode2.toLowerCase()}`,
+      title: `${subjectCode2} — VTUSync page`,
       type: 'notes',
-      subject: context.subject || context.subjectCode,
-      subjectCode: context.subjectCode,
+      subject: context?.subject || subjectCode2,
+      subjectCode: subjectCode2,
       branch: 'CSE/ISE/AIML',
       semester: 7,
       scheme: '2022',
-      tags: [context.subjectCode.toLowerCase()],
-      fileUrl: `https://vtusync.in/?s=${encodeURIComponent(context.subjectCode)}`,
+      tags: [subjectCode2.toLowerCase()],
+      fileUrl: `https://vtusync.in/?s=${encodeURIComponent(subjectCode2)}`,
       source: 'VTUSync',
     }];
     resources = liveResourceItems;
   }
+
+  // Recompute after the offline/live passes so added resources surface in
+  // both the success response and the AI-unavailable 503 fallback.
+  const finalPyqResources = resources.filter((r) => r.type === 'pyq');
+  const finalNonPyqResources = resources.filter((r) => r.type !== 'pyq');
 
   /* ---------- Step 2: YouTube — only if needed/requested ----------
    * Also skipped for conversational messages. */
@@ -312,8 +305,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(503).json({
         error: 'ai_unavailable',
         message: 'The AI explanation is unavailable right now — but the VTUSync resources found for your question are listed below.',
-        related_resources: nonPyqResources,
-        pyq_resources: pyqResources,
+        related_resources: finalNonPyqResources,
+        pyq_resources: finalPyqResources,
         live_scrape: liveScrape || null,
       });
     }
@@ -351,8 +344,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     answer,
     conversation_id: conversationId,
     sources,
-    related_resources: nonPyqResources,
-    pyq_resources: pyqResources,
+    related_resources: finalNonPyqResources,
+    pyq_resources: finalPyqResources,
     videos,
     video_error: videoError,
     grounded,

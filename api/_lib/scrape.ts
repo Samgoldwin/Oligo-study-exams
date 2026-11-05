@@ -132,6 +132,56 @@ function fetchCheerioMarkdown(url: string): Promise<string> {
   });
 }
 
+/**
+ * Extract real article <a> links from a vtusync.in results listing.
+ * Prefers links that look like post slugs (contains subject code or IoT-like
+ * keywords); falls back to any in-domain content link.
+ */
+function extractResultLinks(html: string, code: string): string[] {
+  try {
+    const $ = cheerio.load(html);
+    const links: string[] = [];
+    const seen = new Set<string>();
+    const codeRe = new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    // Prioritize anchor tags that mention the code or look like notes pages.
+    const candidates: string[] = [];
+    $('a[href]').each((_i, el) => {
+      const href = ($(el).attr('href') || '').trim();
+      const text = ($(el).text() || '').trim().replace(/\s+/g, ' ');
+      if (!href || !href.startsWith('https://vtusync.in/')) return;
+      const path = href.replace(/^https:\/\/vtusync\.in\//, '').replace(/\/$/, '');
+      if (!path || path.includes('/') && !path.match(/^[a-z0-9\-]+$/)) return;
+      candidates.push(`${href}|${text}`);
+    });
+    // Rank: code in URL or text first.
+    candidates.sort((a, b) => {
+      const [ha, ta] = a.split('|');
+      const [hb, tb] = b.split('|');
+      const score = (h: string, t: string) => {
+        let s = 0;
+        if (codeRe.test(h)) s += 3;
+        if (codeRe.test(t)) s += 2;
+        if (/notes|pdf|unit|module/.test(h)) s += 1;
+        return s;
+      };
+      return score(hb, tb) - score(ha, ta);
+    });
+    for (const c of candidates) {
+      const [href] = c.split('|');
+      if (seen.has(href)) continue;
+      // Skip category/nav pages — only content slugs (contains a dash or code).
+      const slug = href.replace(/^https:\/\/vtusync\.in\//, '');
+      if (slug.length < 6) continue;
+      seen.add(href);
+      links.push(href);
+      if (links.length >= 6) break;
+    }
+    return links;
+  } catch {
+    return [];
+  }
+}
+
 export async function scrapeVTUSync(opts: ScrapeOptions): Promise<ScrapeResult> {
   const now = Date.now();
   sweep(now);
@@ -176,8 +226,9 @@ export async function scrapeVTUSync(opts: ScrapeOptions): Promise<ScrapeResult> 
 
 /**
  * BCS701 / missing-subject fallback: scrape vtusync.in's own search and
- * build ResourceItems out of real result pages so the chat cards link to
- * the actual notes page instead of the model hallucinating a summary.
+ * build ResourceItems out of real result LINK pages by extracting the
+ * actual article URLs (e.g. /internet-of-things-bcs701), so chat cards
+ * open the real notes instead of the generic search page.
  */
 export async function scrapeToResourceItems(
   subjectCode: string,
@@ -185,44 +236,72 @@ export async function scrapeToResourceItems(
 ): Promise<ResourceItem[]> {
   const code = (subjectCode || '').trim().toUpperCase();
   if (!code) return [];
-  const url = `${VTUSYNC_ROOT}/?s=${encodeURIComponent(code)}`;
-  let markdown = '';
-  try {
-    markdown = await fetchCheerioMarkdown(url);
-  } catch {
+
+  // Try known guesses first (BCS701 -> /internet-of-things-bcs701), then the
+  // site's own search results, to end up with real note URLs.
+  const guessed: string[] = [];
+  if (code === 'BCS701') {
+    guessed.push(`${VTUSYNC_ROOT}/internet-of-things-bcs701`, `${VTUSYNC_ROOT}/internet-of-things-bcs701-imp-qa`);
+  } else {
+    const slug = code.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (slug) guessed.push(`${VTUSYNC_ROOT}/${slug}-vtu-notes`);
+  }
+  const searchUrl = `${VTUSYNC_ROOT}/?s=${encodeURIComponent(code)}`;
+
+  let links: string[] = [];
+  // 1) probe guessed deep links
+  for (const url of guessed) {
     try {
-      markdown = await fetchJinaMarkdown(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 SyncAI/1.0' }, signal: AbortSignal.timeout(12_000) });
+      if (res.ok) links.push(url);
     } catch {
-      return [];
+      /* ignore */
     }
   }
-  if (!markdown || markdown.length < 80) return [];
+  // 2) fall back to extracting links from the search-results page
+  if (links.length === 0) {
+    try {
+      const res = await fetch(searchUrl, { headers: { 'User-Agent': 'Mozilla/5.0 SyncAI/1.0' }, signal: AbortSignal.timeout(12_000) });
+      if (res.ok) {
+        const html = await res.text();
+        links = extractResultLinks(html, code);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (links.length === 0) {
+    // Cheap synthetic card so the UI at least links to the live search.
+    links = [searchUrl];
+  }
 
-  // Best-effort: derive a real title from the scraped page itself.
-  const lines = markdown
-    .split(/[\n\r]+/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 12 && l.length < 180);
-  const titleLine = lines.find((l) => l.toLowerCase().includes(code.toLowerCase())) || lines[0] || `${code} — VTUSync page`;
-
-  // Infer opts.subject from the page if we didn't get one.
+  // Build one card per link; title derived from slug when possible.
   const subject = (opts.subject || code).toString();
-
-  const item: ResourceItem = {
-    id: `live-${code.toLowerCase()}`,
-    title: titleLine.slice(0, 160),
-    type: 'notes',
-    subject,
-    subjectCode: code,
-    branch: 'CSE/ISE/AIML',
-    semester: 7,
-    scheme: '2022',
-    module: undefined,
-    tags: [code.toLowerCase(), subject.toLowerCase()],
-    fileUrl: url,
-    source: 'VTUSync',
-  };
-  return [item];
+  const items: ResourceItem[] = links.slice(0, 4).map((href) => {
+    const slug = href.replace(/^https:\/\/vtusync\.in\//, '').replace(/^\//, '');
+    const cleanTitle = slug
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .split(' ')
+      .map((w) => (w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+      .join(' ');
+    return {
+      id: `live-${href.replace(/^https?:\/\//, '').replace(/[^a-z0-9]/gi, '-').slice(0, 48)}`,
+      title: cleanTitle ? `${cleanTitle} — ${code}` : `${code} — VTUSync page`,
+      type: 'notes' as const,
+      subject,
+      subjectCode: code,
+      branch: 'CSE/ISE/AIML',
+      semester: 7,
+      scheme: '2022',
+      module: undefined,
+      tags: [code.toLowerCase(), subject.toLowerCase()],
+      fileUrl: href,
+      source: 'VTUSync' as const,
+    };
+  }).filter((x) => x.fileUrl);
+  return items;
 }
 
 /** Cheap guard: should we attempt live scraping for this query? */
