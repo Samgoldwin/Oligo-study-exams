@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Check,
   FlaskConical,
+  Info,
   Loader2,
   Plus,
   Trash2,
@@ -82,6 +83,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
 
   const [testStage, setTestStage] = useState<TestStage>("idle");
   const [testResult, setTestResult] = useState<ModelTestResult | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
   const testing = testStage === "encrypting" || testStage === "sending";
 
   const refresh = useCallback(async () => {
@@ -221,15 +223,26 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
         <input className={`${inputCls} mt-2 font-mono`} type="password" placeholder="API key (encrypted before upload)" value={key} onChange={(e) => setKey(e.target.value)} />
 
         {/* Playground: test before saving */}
-        <button
-          type="button"
-          onClick={() => void test()}
-          disabled={testing}
-          className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-[13px] font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
-        >
-          {testing ? <Loader2 size={15} className="animate-spin" /> : <FlaskConical size={15} />}
-          Test connection
-        </button>
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void test()}
+            disabled={testing}
+            className="flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-[13px] font-semibold text-indigo-200 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
+          >
+            {testing ? <Loader2 size={15} className="animate-spin" /> : <FlaskConical size={15} />}
+            Test connection
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLegend((v) => !v)}
+            aria-label="Understanding test results"
+            aria-expanded={showLegend}
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-background/40 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Info size={15} />
+          </button>
+        </div>
 
         {testing && (
           <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3.5 py-2.5 text-[12.5px] text-indigo-200">
@@ -252,18 +265,20 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           </div>
         )}
 
-        {/* Understanding Test Results legend */}
-        <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
-          <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
-            <li><span className="font-semibold text-emerald-400">200:</span> ✓ <span className="font-medium text-foreground">Success!</span> The API key is valid and working perfectly.</li>
-            <li><span className="font-semibold text-red-400">401/403:</span> ✗ <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
-            <li><span className="font-semibold text-amber-300">402:</span> ⚠️ <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
-            <li><span className="font-semibold text-amber-300">429:</span> ⚠️ <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
-            <li><span className="font-semibold text-red-400">500/502/503:</span> ✗ <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
-            <li><span className="font-semibold text-muted-foreground">Unknown:</span> — — Testing is not yet supported for this specific provider.</li>
-          </ul>
-        </div>
+        {/* Understanding Test Results legend (revealed via the info button) */}
+        {showLegend && (
+          <div className="mt-3 rounded-xl border border-border bg-muted/25 px-3.5 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
+            <ul className="mt-2 flex flex-col gap-1.5 text-[11.5px] leading-snug text-muted-foreground">
+              <li><span className="font-semibold text-emerald-400">200:</span> ✓ <span className="font-medium text-foreground">Success!</span> The API key is valid and working perfectly.</li>
+              <li><span className="font-semibold text-red-400">401/403:</span> ✗ <span className="font-medium text-foreground">Invalid</span> — The key is incorrect, revoked, or lacks required permissions.</li>
+              <li><span className="font-semibold text-amber-300">402:</span> ⚠️ <span className="font-medium text-foreground">No Balance</span> — The key is valid, but your account has insufficient balance or expired credits.</li>
+              <li><span className="font-semibold text-amber-300">429:</span> ⚠️ <span className="font-medium text-foreground">Rate Limit</span> — You are testing too fast. Please wait a bit before trying again.</li>
+              <li><span className="font-semibold text-red-400">500/502/503:</span> ✗ <span className="font-medium text-foreground">Failed</span> — Internal server error on the provider's side or network timeout.</li>
+              <li><span className="font-semibold text-muted-foreground">Unknown:</span> — — Testing is not yet supported for this specific provider.</li>
+            </ul>
+          </div>
+        )}
 
         {error && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
