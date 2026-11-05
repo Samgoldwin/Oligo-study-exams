@@ -157,7 +157,7 @@ export function ModelPicker({
           aria-label="Choose chat model"
           title={selected.label}
           className={cn(
-            "group inline-flex h-7 max-w-[11rem] items-center gap-1.5 rounded-full border border-transparent px-2 font-mono text-[10.5px] font-medium text-muted-foreground transition-all hover:border-border hover:bg-accent hover:text-foreground",
+            "group inline-flex h-7 max-w-[11rem] items-center gap-1.5 rounded-full border border-border bg-muted/20 px-2.5 font-mono text-[10.5px] font-medium text-muted-foreground transition-all hover:border-foreground/20 hover:bg-accent hover:text-foreground",
             className
           )}
         >
