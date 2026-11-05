@@ -1,17 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
-  requireUid,
   listCustomModels,
   saveCustomModel,
   deleteCustomModel,
 } from '../../_lib/customModels';
 import { asString } from '../../_lib/http';
+import { resolveAuth } from '../../_lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const uid = await requireUid(req);
-  if (!uid) {
+  // Mirrors chat.ts: auth is enforced only when a service account is
+  // configured. Otherwise (local dev) we use a shared guest identity so the
+  // flow works end-to-end without a verified token.
+  const auth = await resolveAuth(req);
+  if (process.env.FIREBASE_SERVICE_ACCOUNT && !auth.uid) {
     return res.status(401).json({ error: 'unauthorized', message: 'Sign in to manage custom models.' });
   }
+  const uid = auth.uid ?? 'guest';
 
   // List
   if (req.method === 'GET') {
