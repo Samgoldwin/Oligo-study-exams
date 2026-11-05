@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, X, ChevronRight, KeyRound, Paperclip, Loader2 } from 'lucide-react';
+import { FileText, X, ChevronRight, Paperclip, Loader2 } from 'lucide-react';
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
@@ -31,6 +31,7 @@ import {
 } from '../../services/pyqStore';
 import { SyncAISidebar } from './SyncAISidebar';
 import { SyncAIAssistantMessage } from './SyncAIAssistantMessage';
+import { SettingsPanel } from './SettingsPanel';
 import { SubjectCodePrompt } from './SubjectCodePrompt';
 import { PyqAnalysis } from './PyqAnalysis';
 
@@ -81,10 +82,11 @@ function docPayloadOf(conversation: Conversation | null, attachedDoc: PdfExtract
 
 export const SyncAIChat: React.FC<{
   onManageModels?: () => void;
-  userUid?: string | null;
-}> = ({ onManageModels, userUid }) => {
+  onSignOut?: () => void;
+  user?: import('../../services/firebaseClient').UserProfile | null;
+}> = ({ onManageModels, onSignOut, user }) => {
   const [context, setContext] = useState<AcademicContext>(() => loadContext());
-  const [view, setView] = useState<"chat" | "pyq">("chat");
+  const [view, setView] = useState<"chat" | "pyq" | "settings">("chat");
   const [conversations, setConversations] = useState<Conversation[]>(() => listConversations());
   const [pyqHistory, setPyqHistory] = useState<PyqHistoryItem[]>(() => listPyqHistory());
   const [activePyqId, setActivePyqId] = useState<string | null>(null);
@@ -97,6 +99,8 @@ export const SyncAIChat: React.FC<{
     () => !loadContext().subjectCode,
   );
 
+  // Settings view (assistant-ui style) — render in place of the PYQ/chat area.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messages = active?.messages ?? EMPTY_MESSAGES;
@@ -104,6 +108,14 @@ export const SyncAIChat: React.FC<{
   useEffect(() => {
     saveContext(context);
   }, [context]);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSettingsOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
 
   const persist = useCallback((conv: Conversation) => {
     saveConversation(conv);
@@ -113,6 +125,7 @@ export const SyncAIChat: React.FC<{
 
   const handleNewChat = useCallback(() => {
     setView('chat');
+    setSettingsOpen(false);
     setActive(createConversation(context));
     setAttachedDoc(null);
     setNotice(null);
@@ -122,6 +135,7 @@ export const SyncAIChat: React.FC<{
 
   const handleSelect = useCallback((id: string) => {
     setView('chat');
+    setSettingsOpen(false);
     const conv = getConversation(id);
     if (!conv) return;
     setActive(conv);
@@ -163,6 +177,7 @@ export const SyncAIChat: React.FC<{
 
   const handleOpenPyq = useCallback((id: string) => {
     setActivePyqId(id);
+    setSettingsOpen(false);
     setView('pyq');
   }, []);
 
@@ -170,6 +185,15 @@ export const SyncAIChat: React.FC<{
     removePyqHistory(id);
     setPyqHistory(listPyqHistory());
     setActivePyqId((current) => (current === id ? null : current));
+  }, []);
+
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+    setView('settings');
+  }, []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    setView('chat');
   }, []);
 
   const handleFilePick = useCallback(() => {
@@ -404,7 +428,7 @@ export const SyncAIChat: React.FC<{
     [active?.id, conversations, handleDelete, handleNewChat, handleRename, handleSelect]
   );
 
-  const hasChatted = messages.length > 0;
+  const hasChatted = (active?.messages.length ?? 0) > 0;
   const runtime = useExternalStoreRuntime({
     messages: runtimeMessages,
     isRunning: isSending,
@@ -467,7 +491,7 @@ export const SyncAIChat: React.FC<{
 
   // Load the user's BYO models when signed in.
   useEffect(() => {
-    if (!userUid) {
+    if (!user?.uid) {
       setCustomModels([]);
       setCustomModelId(null);
       return;
@@ -485,7 +509,7 @@ export const SyncAIChat: React.FC<{
     return () => {
       cancelled = true;
     };
-  }, [userUid]);
+  }, [user?.uid]);
 
   const ComposerAttachment = useMemo(() => {
     const Attach = () => (
@@ -565,6 +589,11 @@ export const SyncAIChat: React.FC<{
           activePyqId={activePyqId}
           onOpenPyq={handleOpenPyq}
           onDeletePyq={handleDeletePyq}
+          user={user ?? null}
+          onManageModels={onManageModels}
+          onSignOut={onSignOut}
+          onOpenSettings={openSettings}
+          settingsOpen={settingsOpen}
         />
 
         <SidebarInset>
@@ -576,28 +605,27 @@ export const SyncAIChat: React.FC<{
               <span className="hidden font-medium text-muted-foreground sm:inline">SyncAI</span>
               <ChevronRight size={14} className="hidden text-muted-foreground sm:inline" />
               <span className="max-w-[38vw] truncate font-medium text-foreground">
-                {view === "pyq" ? "PYQ Analysis" : (active?.title ?? "New Chat")}
+                {view === "settings" ? "Settings" : view === "pyq" ? "PYQ Analysis" : (active?.title ?? "New Chat")}
               </span>
             </nav>
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              {onManageModels && (
-                <button
-                  type="button"
-                  onClick={onManageModels}
-                  className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <KeyRound size={14} />
-                  <span className="hidden sm:inline">My models</span>
-                </button>
-              )}
               <span className="hidden rounded-full border border-border bg-muted/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:inline">
-                {view === "pyq" ? "AI-Generated" : "AI Chat"}
+                {view === "pyq" ? "AI-Generated" : view === "settings" ? "Account" : "AI Chat"}
               </span>
             </div>
           </header>
 
-          {/* Chat view */}
-          {view === "chat" ? (
+          {/* Settings view (assistant-ui profile/account) */}
+          {view === "settings" ? (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <SettingsPanel
+                user={user ?? null}
+                onBack={closeSettings}
+                onManageModels={onManageModels ?? (() => undefined)}
+                onSignOut={onSignOut ?? (() => undefined)}
+              />
+            </div>
+          ) : view === "chat" ? (
             <>
               {/* Academic context (subject code from the chat) + attachments */}
               {showSubjectPrompt && (

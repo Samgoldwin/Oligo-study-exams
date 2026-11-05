@@ -42,6 +42,18 @@ export function onAuthChange(cb: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, cb);
 }
 
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
+export function toProfile(user: User | null): UserProfile | null {
+  if (!user) return null;
+  return { uid: user.uid, email: user.email, displayName: user.displayName, photoURL: user.photoURL };
+}
+
 export async function signUp(email: string, password: string) {
   const auth = getFirebaseAuth();
   if (!auth) throw new Error('Firebase is not configured on this deployment.');

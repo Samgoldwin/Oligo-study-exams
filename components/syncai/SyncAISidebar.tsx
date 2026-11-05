@@ -28,17 +28,23 @@ import {
   TrashIcon,
   BarChart3,
   FileText,
+  KeyRoundIcon,
+  LogOutIcon,
+  ChevronUpIcon,
+  SettingsIcon,
   MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SyncAILogo } from "./SyncAILogo";
 import type { PyqHistoryItem } from "@/services/pyqStore";
+import type { UserProfile } from "@/services/firebaseClient";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
@@ -389,15 +395,28 @@ export function SyncAISidebar({
   activePyqId = null,
   onOpenPyq,
   onDeletePyq,
+  user = null,
+  onManageModels,
+  onSignOut,
+  onOpenSettings,
+  settingsOpen = false,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  view: "chat" | "pyq";
-  onViewChange: (view: "chat" | "pyq") => void;
+  view: "chat" | "pyq" | "settings";
+  onViewChange: (view: "chat" | "pyq" | "settings") => void;
   pyqHistory?: PyqHistoryItem[];
   activePyqId?: string | null;
   onOpenPyq?: (id: string) => void;
   onDeletePyq?: (id: string) => void;
+  user?: UserProfile | null;
+  onManageModels?: () => void;
+  onSignOut?: () => void;
+  onOpenSettings?: () => void;
+  settingsOpen?: boolean;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b border-sidebar-border">
@@ -496,15 +515,86 @@ export function SyncAISidebar({
       <SidebarFooter className="aui-sidebar-footer border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded border border-amber-500/30 bg-amber-500/10 text-[9px] font-bold uppercase tracking-wider text-amber-400">
-                v1
-              </span>
-              <span className="flex flex-col gap-0.5 leading-none">
-                <span className="text-[11px] font-medium text-sidebar-foreground">VTUSync integration</span>
-                <span className="text-[9px] text-muted-foreground">Stub resource layer · AI-generated answers</span>
-              </span>
-            </div>
+            {user ? (
+              <div className="group relative flex w-full flex-col">
+                <div className="flex items-center gap-1">
+                  <SidebarMenuButton
+                    size="lg"
+                    className="hover:bg-accent hover:text-sidebar-accent-foreground peer/menu-sub-trigger flex-1"
+                    onClick={() => setMenuOpen((open) => !open)}
+                  >
+                    <div className="aui-sidebar-footer-icon-wrapper bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                      <img
+                        src={
+                          user.photoURL ??
+                          `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(user.uid)}`
+                        }
+                        alt=""
+                        className="size-4 rounded-full"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="aui-sidebar-footer-heading flex min-w-0 flex-1 flex-col gap-0.5 leading-none">
+                      <span className="aui-sidebar-footer-title truncate font-semibold">
+                        {user.displayName ?? user.email ?? "SyncAI user"}
+                      </span>
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {user.email ?? "Signed in"}
+                      </span>
+                    </div>
+                    <ChevronUpIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                  </SidebarMenuButton>
+                </div>
+
+                {menuOpen && (
+                  <div className="animate-in fade-in-0 zoom-in-95 origin-bottom mb-2 w-full rounded-xl border border-white/5 bg-popover p-1.5 shadow-2xl shadow-black/50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        onOpenSettings?.();
+                      }}
+                      className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none"
+                    >
+                      <SettingsIcon className="size-4" /> Settings
+                    </button>
+                    {onManageModels && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeMenu();
+                          onManageModels();
+                        }}
+                        className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none"
+                      >
+                        <KeyRoundIcon className="size-4" /> My models
+                      </button>
+                    )}
+                    <div className="-mx-1 my-1 h-px bg-border/70" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        onSignOut?.();
+                      }}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none"
+                    >
+                      <LogOutIcon className="size-4" /> Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded border border-amber-500/30 bg-amber-500/10 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                  v1
+                </span>
+                <span className="flex flex-col gap-0.5 leading-none">
+                  <span className="text-[11px] font-medium text-sidebar-foreground">VTUSync integration</span>
+                  <span className="text-[9px] text-muted-foreground">Stub resource layer · AI-generated answers</span>
+                </span>
+              </div>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { firebaseConfigured, signIn, signUp, signInWithGoogle } from "@/services/firebaseClient";
 import { SyncAILogo } from "@/components/syncai/SyncAILogo";
 
@@ -101,7 +101,6 @@ export const AuthScreen: React.FC = () => {
             disabled={busy}
             className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-foreground text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {mode === "up" ? "Create account" : "Sign in"}
           </button>
 

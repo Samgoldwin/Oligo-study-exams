@@ -1,0 +1,19 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "SyncAI",
+        "supportEmail": "support@vtusync.in",
+        "authorizedRedirectUris": [
+          "https://syncaii.firebaseapp.com/__/auth/handler",
+          "http://localhost"
+        ]
+      },
+      "anonymous": true
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

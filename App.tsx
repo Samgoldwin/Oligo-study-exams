@@ -7,11 +7,14 @@ import {
   firebaseConfigured,
   onAuthChange,
   getIdToken,
+  signOutUser,
+  toProfile,
+  type UserProfile,
 } from "./services/firebaseClient";
 import { setAuthToken } from "./services/syncAIService";
 
 const App: React.FC = () => {
-  const [userUid, setUserUid] = useState<string | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [ready, setReady] = useState(!firebaseConfigured);
   const [modelsOpen, setModelsOpen] = useState(false);
 
@@ -20,9 +23,9 @@ const App: React.FC = () => {
       setReady(true);
       return;
     }
-    const unsub = onAuthChange(async (user) => {
-      setUserUid(user?.uid ?? null);
-      setAuthToken(user ? await getIdToken() : null);
+    const unsub = onAuthChange(async (firebaseUser) => {
+      setUser(toProfile(firebaseUser));
+      setAuthToken(firebaseUser ? await getIdToken() : null);
       setReady(true);
     });
     return unsub;
@@ -32,7 +35,7 @@ const App: React.FC = () => {
     return <div className="min-h-dvh bg-background" />;
   }
 
-  if (firebaseConfigured && !userUid) {
+  if (firebaseConfigured && !user) {
     return (
       <TooltipProvider>
         <AuthScreen />
@@ -43,8 +46,9 @@ const App: React.FC = () => {
   return (
     <TooltipProvider>
       <SyncAIChat
-        userUid={userUid}
+        user={user}
         onManageModels={() => setModelsOpen(true)}
+        onSignOut={() => void signOutUser()}
       />
       <ModelsModal open={modelsOpen} onClose={() => setModelsOpen(false)} />
     </TooltipProvider>
