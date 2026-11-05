@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import {
   syncAI,
   SyncAIApiError,
@@ -192,9 +193,10 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Close"
+            className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            Close
+            <X size={16} />
           </button>
         </div>
 
