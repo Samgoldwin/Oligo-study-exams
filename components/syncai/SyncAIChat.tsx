@@ -31,7 +31,7 @@ import {
 } from '../../services/pyqStore';
 import { SyncAISidebar } from './SyncAISidebar';
 import { SyncAIAssistantMessage } from './SyncAIAssistantMessage';
-import { SettingsPanel } from './SettingsPanel';
+import { SettingsPanel, type SettingsActivityItem } from './SettingsPanel';
 import { SubjectCodePrompt } from './SubjectCodePrompt';
 import { PyqAnalysis } from './PyqAnalysis';
 
@@ -186,6 +186,22 @@ export const SyncAIChat: React.FC<{
     setPyqHistory(listPyqHistory());
     setActivePyqId((current) => (current === id ? null : current));
   }, []);
+
+  // Real activity feed for the Settings screen — derived from actual chats &
+  // PYQ analyses, no fabricated entries.
+  const settingsActivity = useMemo<SettingsActivityItem[]>(() => {
+    const items: SettingsActivityItem[] = [];
+    for (const c of conversations) {
+      if (c.messages.length > 0) {
+        items.push({ id: `chat-${c.id}`, kind: 'chat', text: `Chat · ${c.title}`, time: c.updatedAt });
+      }
+    }
+    for (const p of pyqHistory) {
+      items.push({ id: `pyq-${p.id}`, kind: 'pyq', text: `PYQ analysis · ${p.subject}`, time: p.createdAt });
+    }
+    items.sort((a, b) => b.time - a.time);
+    return items.slice(0, 6);
+  }, [conversations, pyqHistory]);
 
   const openSettings = useCallback(() => {
     setSettingsOpen(true);
@@ -459,9 +475,7 @@ export const SyncAIChat: React.FC<{
   const [models, setModels] = useState<
     Array<{ id: string; label: string; current: boolean }>
   >([]);
-  const [customModels, setCustomModels] = useState<
-    Array<{ id: string; label: string }>
-  >([]);
+  const [customModels, setCustomModels] = useState<import('../../services/syncAIService').CustomModelMeta[]>([]);
   const [customModelId, setCustomModelId] = useState<string | null>(null);
   const customModelRef = useRef<string | null>(null);
   customModelRef.current = customModelId;
@@ -501,7 +515,7 @@ export const SyncAIChat: React.FC<{
       try {
         const res = await syncAI.listCustomModels();
         if (cancelled) return;
-        setCustomModels(res.models.map((m) => ({ id: `custom:${m.id}`, label: `${m.name} · ${m.model}` })));
+        setCustomModels(res.models);
       } catch {
         /* not signed in / unavailable — ignore */
       }
@@ -540,7 +554,7 @@ export const SyncAIChat: React.FC<{
             setCustomModelId(null);
             setModel(id);
           }}
-          customModels={customModels}
+          customModels={customModels.map((m) => ({ id: `custom:${m.id}`, label: `${m.name} · ${m.model}` }))}
           onSelectCustom={(id) => {
             setModel(null);
             setCustomModelId(id.startsWith("custom:") ? id.slice(7) : id);
@@ -620,6 +634,8 @@ export const SyncAIChat: React.FC<{
             <div className="min-h-0 flex-1 overflow-hidden">
               <SettingsPanel
                 user={user ?? null}
+                customModels={customModels}
+                activity={settingsActivity}
                 onBack={closeSettings}
                 onManageModels={onManageModels ?? (() => undefined)}
                 onSignOut={onSignOut ?? (() => undefined)}
