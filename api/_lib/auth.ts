@@ -22,7 +22,8 @@ function getApp(): App | null {
     const sa = JSON.parse(raw) as Record<string, string>;
     const existing = getApps()[0];
     app = existing ?? initializeApp({ credential: cert(sa as any) });
-  } catch {
+  } catch (err) {
+    console.error('[auth] service account init failed:', err instanceof Error ? err.message : err);
     app = null;
   }
   return app;
@@ -42,7 +43,8 @@ export async function resolveAuth(req: VercelRequest): Promise<AuthedRequest> {
   try {
     const decoded = await getAuth(activeApp).verifyIdToken(token);
     return { uid: decoded.uid ?? null };
-  } catch {
+  } catch (err) {
+    console.error('[resolveAuth] ID token verification failed:', err instanceof Error ? err.message : err);
     return { uid: null };
   }
 }
