@@ -36,19 +36,7 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
-  // (No preset chips — freellm.net directory link only.)
-  const PRESETS = [
-    { name: "Google Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" },
-    { name: "Groq", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
-    { name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "google/gemini-2.5-flash" },
-    { name: "NVIDIA NIM", baseUrl: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
-    { name: "Cohere", baseUrl: "https://api.cohere.ai/v2", model: "command-r7b-12b" },
-    { name: "Mistral AI", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
-    { name: "Together AI", baseUrl: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
-    { name: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", model: "llama3.1-70b-versatile" },
-    { name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
-  ];
-
+  // Providers removed by user request — manual entry only; directory link stays.
   function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
@@ -209,19 +197,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     setTimeout(() => firstInputRef.current?.focus(), 60);
   };
 
-  const applyPreset = (p: (typeof PRESETS)[number]) => {
-    setName(p.name);
-    setBaseUrl(p.baseUrl);
-    setModel(p.model);
-    setMissing({});
-    setError(null);
-    setVerifiedSig(null);
-    setTestStage("idle");
-    setTestResult(null);
-    firstInputRef.current?.focus();
-  };
-
-  const matchedProvider = PRESETS.find((p) => p.baseUrl === baseUrl.trim());
   const inputCls =
     "w-full rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30 focus:bg-background";
   const secondaryBtnCls =
@@ -368,38 +343,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                     Open directory
                   </a>
                 </div>
-                <div className="border-t border-border/70 bg-muted/20 px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                  {matchedProvider
-                    ? `Matches ${matchedProvider.name} — paste your API key and hit Test & verify.`
-                    : "Get a free key from the directory, paste it below, and hit Test & verify."}
-                </div>
-              </div>
-
-              {/* Provider list */}
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Providers</p>
-              <div className="mb-4 flex flex-col gap-1">
-                {PRESETS.map((p) => {
-                  const isActive = matchedProvider?.baseUrl === p.baseUrl;
-                  return (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => applyPreset(p)}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors",
-                        isActive ? "border border-foreground/15 bg-accent" : "border border-transparent hover:border-border hover:bg-accent/50",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12.5px] font-medium text-foreground">{p.name}</span>
-                        <span className="block truncate text-[10.5px] text-muted-foreground">{p.baseUrl.replace(/^https?:\/\//, "")}</span>
-                      </span>
-                      <span className={cn("shrink-0 text-[10px] font-semibold uppercase tracking-wide", isActive ? "text-foreground" : "text-muted-foreground/70")}>
-                        {isActive ? "Active" : "Use"}
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
 
               {models.length > 0 && (
