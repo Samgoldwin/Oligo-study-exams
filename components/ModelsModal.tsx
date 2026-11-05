@@ -209,7 +209,38 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     { text: "Calling the provider to verify the model", desc: "Checking the key against a live generation request" },
   ];
   const activeTestStep =
-    testStage === "encrypting" ? 0 : testStage === "sending" ? 1 : testStage === "done" ? TEST_STEPS.length : -1;
+    testStage === "encrypting" ? 0 : testStage === "sending" ? 2 : testStage === "done" ? TEST_STEPS.length : -1;
+
+  const TrustTimeline: React.FC = () => (
+    <div className="mt-3 rounded-xl border border-indigo-500/25 bg-indigo-500/10 p-3.5">
+      <ol className="flex flex-col gap-2.5">
+        {TEST_STEPS.map((s, i) => {
+          const isActive = i === activeTestStep;
+          const isDone = i < activeTestStep;
+          return (
+            <li key={s.text} className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                {isActive ? (
+                  <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <span className={cn("size-1.5 rounded-full", isDone ? "bg-indigo-300" : "bg-indigo-300/30")} />
+                )}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[12.5px] font-medium leading-snug text-indigo-100">{s.text}</p>
+                <p className="text-[11px] leading-snug text-indigo-200/70">{s.desc}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="mt-3 border-t border-indigo-500/20 pt-2.5 text-[11px] leading-relaxed text-indigo-200/80">
+        {testStage === "encrypting"
+          ? "Your API key is being locked before it leaves this device."
+          : "We never store your API key in plain text. Ciphertext only, decrypted in memory for a single call."}
+      </div>
+    </div>
+  );
 
   const steps: Array<{ n: Step; label: string }> = [
     { n: 1, label: "Connect" },
@@ -352,6 +383,8 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                 </div>
               </div>
 
+              {testing && <TrustTimeline />}
+
               {error && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
               )}
@@ -368,36 +401,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                 We send a tiny request to <span className="font-medium text-foreground">{model.trim() || "your model"}</span> using an encrypted key. Nothing is saved yet.
               </p>
 
-              {testing && (
-                <div className="mt-3 rounded-xl border border-indigo-500/25 bg-indigo-500/10 p-3.5">
-                  <ol className="flex flex-col gap-2.5">
-                    {TEST_STEPS.map((s, i) => {
-                      const isActive = i === activeTestStep;
-                      const isDone = i < activeTestStep;
-                      return (
-                        <li key={s.text} className="flex items-start gap-2.5">
-                          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-                            {isActive ? (
-                              <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            ) : (
-                              <span className={cn("size-1.5 rounded-full", isDone ? "bg-indigo-300" : "bg-indigo-300/30")} />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-[12.5px] font-medium leading-snug text-indigo-100">{s.text}</p>
-                            <p className="text-[11px] leading-snug text-indigo-200/70">{s.desc}</p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                  <div className="mt-3 border-t border-indigo-500/20 pt-2.5 text-[11px] text-indigo-200/80">
-                    {testStage === "encrypting"
-                      ? "Your API key is being locked before it leaves this device."
-                      : "Nothing is saved until this finishes."}
-                  </div>
-                </div>
-              )}
+              {testing && <TrustTimeline />}
 
               {testResult && meta && (
                 <div className={cn("mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[12.5px]", TONE_CLS[meta.tone])}>
