@@ -78,6 +78,14 @@ export async function signOutUser() {
   if (auth) await signOut(auth);
 }
 
+/** Permanently deletes the signed-in Firebase account. */
+export async function deleteUserAccount(): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
+  if (!auth || !user) throw new Error('You are not signed in.');
+  await user.delete();
+}
+
 export async function getIdToken(): Promise<string | null> {
   const auth = getFirebaseAuth();
   if (!auth?.currentUser) return null;

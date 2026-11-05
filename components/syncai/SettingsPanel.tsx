@@ -8,17 +8,20 @@ import {
   FileText,
   Gauge,
   KeyRound,
+  Loader2,
   LogOut,
   Mail,
   Play,
   Plug,
   Shield,
   Sparkles,
+  Trash2,
   User,
   Users,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { deleteUserAccount } from "@/services/firebaseClient";
 import type { UserProfile } from "@/services/firebaseClient";
 import type { CustomModelMeta } from "@/services/syncAIService";
 
@@ -94,10 +97,18 @@ function NavButton({
 }
 
 /** Compact assistant-ui-style setting card. */
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, tone = "default", children }: { title: string; tone?: "default" | "danger"; children: React.ReactNode }) {
+  const danger = tone === "danger";
   return (
-    <section className="rounded-lg border border-border bg-card">
-      <header className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">{title}</header>
+    <section className={cn("rounded-lg border bg-card", danger ? "border-red-500/30" : "border-border")}>
+      <header
+        className={cn(
+          "border-b px-4 py-3 text-sm font-medium",
+          danger ? "border-red-500/20 text-red-400" : "border-border text-foreground",
+        )}
+      >
+        {title}
+      </header>
       {children}
     </section>
   );
@@ -181,6 +192,7 @@ export const SettingsPanel: React.FC<{
   initialSection?: Section;
 }> = ({ user, customModels = [], activity = [], onBack, onManageModels, onSignOut, initialSection = "profile" }) => {
   const [section, setSection] = useState<Section>(initialSection);
+  const [deleting, setDeleting] = useState(false);
   const avatarSrc =
     user?.photoURL ??
     `https://api.dicebear.com/9.x/thumbs/svg?seed=${encodeURIComponent(user?.uid ?? "syncai-guest")}`;
@@ -190,6 +202,24 @@ export const SettingsPanel: React.FC<{
     pyq: FileText,
     model: KeyRound,
     signin: User,
+  };
+
+  const handleDeleteAccount = async () => {
+    if (
+      !window.confirm(
+        "Delete this account permanently? Your chats stay on this device, but you will not be able to sign in again with this account.",
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteUserAccount();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Could not delete the account.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -270,20 +300,40 @@ export const SettingsPanel: React.FC<{
           )}
 
           {section === "security" && (
-            <Card title="Sign out">
-              <Row className="flex-col items-start gap-2">
-                <p className="text-[13px] leading-relaxed text-muted-foreground">
-                  Ends your session on this device. Access to chats, models, and history will require signing in again.
-                </p>
-                <button
-                  type="button"
-                  onClick={onSignOut}
-                  className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 text-[12.5px] font-semibold text-red-400 transition-colors hover:bg-red-500/20"
-                >
-                  <LogOut size={14} /> Sign out
-                </button>
-              </Row>
-            </Card>
+            <>
+              <Card title="Sign out">
+                <Row className="flex-col items-start gap-2">
+                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                    Ends your session on this device. Access to chats, models, and history will require signing in again.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 text-[12.5px] font-semibold text-red-400 transition-colors hover:bg-red-500/20"
+                  >
+                    <LogOut size={14} /> Sign out
+                  </button>
+                </Row>
+              </Card>
+
+              <Card title="Danger zone" tone="danger">
+                <Row className="flex-col items-start gap-2">
+                  <p className="text-[13px] font-semibold text-red-400">Delete account</p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Permanently deletes your SyncAI account and revokes sign-in. This cannot be undone.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteAccount()}
+                    disabled={deleting}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 text-[12.5px] font-semibold text-red-300 transition-colors hover:bg-red-500/25 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Delete account
+                  </button>
+                </Row>
+              </Card>
+            </>
           )}
 
           {section === "sessions" && (

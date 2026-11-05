@@ -35,6 +35,7 @@ const ROUTES: Record<string, string> = {
   '/api/syncai/models': 'api/syncai/models.ts',
   '/api/syncai/pubkey': 'api/syncai/pubkey.ts',
   '/api/syncai/models/custom': 'api/syncai/models/custom.ts',
+  '/api/syncai/models/test': 'api/syncai/models/test.ts',
 };
 
 const server = createServer(async (req, res) => {

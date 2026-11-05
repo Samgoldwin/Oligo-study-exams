@@ -34,6 +34,16 @@ export interface CustomModelMeta {
   createdAt: number;
 }
 
+export type ModelTestVerdict = 'ok' | 'invalid' | 'no_balance' | 'rate_limit' | 'failed' | 'unknown';
+
+export interface ModelTestResult {
+  ok: boolean;
+  status: number | null;
+  verdict: ModelTestVerdict;
+  ms: number;
+  message?: string | null;
+}
+
 export class SyncAIApiError extends Error {
   constructor(
     public status: number,
@@ -116,6 +126,14 @@ export const syncAI = {
 
   deleteCustomModel(id: string): Promise<{ ok: boolean }> {
     return requestJson('DELETE', '/api/syncai/models/custom', { id });
+  },
+
+  testCustomModel(input: { baseUrl: string; model: string; encryptedKey: string }): Promise<ModelTestResult> {
+    return postJson<ModelTestResult>('/api/syncai/models/test', {
+      base_url: input.baseUrl,
+      model: input.model,
+      encrypted_key: input.encryptedKey,
+    });
   },
 
   searchResources(params: {
