@@ -108,8 +108,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else verdict = 'unknown';
 
       const payload: Record<string, unknown> = { ok: status === 200, status, verdict, ms };
-      if (verdict === 'unknown') {
-        payload.message = 'The provider responded with an unexpected status — testing may not be supported for this endpoint.';
+      if (status !== 200) {
+        // Peel the provider's own error out of the body so the verdict is
+        // actionable (e.g. "model too large", "insufficient quota", ...).
+        let providerMsg = '';
+        try {
+          const raw = await upstream.text();
+          const parsed = JSON.parse(raw) as { error?: unknown; message?: unknown };
+          const err = parsed.error ?? {};
+          providerMsg =
+            typeof err === 'string'
+              ? err
+              : String((err as { message?: unknown })?.message ?? '').trim();
+          if (!providerMsg && typeof parsed.message === 'string') providerMsg = String(parsed.message);
+        } catch {
+          /* non-JSON body — keep the default message */
+        }
+        if (verdict === 'unknown') {
+          payload.message = providerMsg || 'The provider responded with an unexpected status — testing may not be supported for this endpoint.';
+        } else if (providerMsg) {
+          payload.message = providerMsg;
+        }
       }
       return res.status(200).json(payload);
     } catch {
