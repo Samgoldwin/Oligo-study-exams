@@ -36,20 +36,6 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  name: "Name",
-  baseUrl: "Base URL",
-  model: "Model ID",
-  key: "API key",
-};
-
-function missingSummary(missing: Record<string, boolean>): string {
-  return Object.keys(FIELD_LABELS)
-    .filter((k) => missing[k])
-    .map((k) => FIELD_LABELS[k])
-    .join(", ");
-}
-
 function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
@@ -160,7 +146,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     const m = missingNow();
     setMissing(m);
     if (Object.values(m).some(Boolean)) {
-      setError(`Fill in: ${missingSummary(m)}, then verify.`);
       setStep(1);
       return;
     }
@@ -217,6 +202,14 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const primaryBtnCls =
     "flex h-9 flex-1 items-center justify-center rounded-xl bg-foreground px-4 text-[13px] font-semibold text-background transition-colors hover:opacity-90 disabled:opacity-50";
   const meta = testResult ? VERDICT_META[testResult.verdict] : null;
+  const TEST_STEPS = [
+    { text: "Encrypting your API key in this browser", desc: "RSA-OAEP · your key never travels in plain text" },
+    { text: "Sending the encrypted key to SyncAI over HTTPS", desc: "Ciphertext only crosses the network" },
+    { text: "Decrypting in memory to make the provider call", desc: "Never written to disk or shown again" },
+    { text: "Calling the provider to verify the model", desc: "Checking the key against a live generation request" },
+  ];
+  const activeTestStep =
+    testStage === "encrypting" ? 0 : testStage === "sending" ? 1 : testStage === "done" ? TEST_STEPS.length : -1;
 
   const steps: Array<{ n: Step; label: string }> = [
     { n: 1, label: "Connect" },
@@ -359,12 +352,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                 </div>
               </div>
 
-              {Object.values(missing).some(Boolean) && (
-                <p className="mt-2 text-[11px] font-medium text-red-400">
-                  Missing: {missingSummary(missing)}.
-                </p>
-              )}
-
               {error && (
                 <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12px] leading-relaxed text-red-300">{error}</div>
               )}
@@ -382,9 +369,33 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
               </p>
 
               {testing && (
-                <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3.5 py-2.5 text-[12.5px] text-indigo-200">
-                  <span className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  <span>{testStage === "encrypting" ? "Encrypting your API key…" : "Sending request securely…"}</span>
+                <div className="mt-3 rounded-xl border border-indigo-500/25 bg-indigo-500/10 p-3.5">
+                  <ol className="flex flex-col gap-2.5">
+                    {TEST_STEPS.map((s, i) => {
+                      const isActive = i === activeTestStep;
+                      const isDone = i < activeTestStep;
+                      return (
+                        <li key={s.text} className="flex items-start gap-2.5">
+                          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                            {isActive ? (
+                              <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            ) : (
+                              <span className={cn("size-1.5 rounded-full", isDone ? "bg-indigo-300" : "bg-indigo-300/30")} />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[12.5px] font-medium leading-snug text-indigo-100">{s.text}</p>
+                            <p className="text-[11px] leading-snug text-indigo-200/70">{s.desc}</p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  <div className="mt-3 border-t border-indigo-500/20 pt-2.5 text-[11px] text-indigo-200/80">
+                    {testStage === "encrypting"
+                      ? "Your API key is being locked before it leaves this device."
+                      : "Nothing is saved until this finishes."}
+                  </div>
                 </div>
               )}
 
@@ -442,7 +453,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                     const m = missingNow();
                     setMissing(m);
                     if (Object.values(m).some(Boolean)) {
-                      setError(`Fill in: ${missingSummary(m)}, then test.`);
                       return;
                     }
                     await runTest();
