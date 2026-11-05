@@ -368,9 +368,9 @@ const ThreadListItemMore: FC<{ onRename: () => void }> = ({ onRename }) => (
 const ThreadListNew: FC = () => (
   <ThreadListPrimitive.New asChild>
     <Button
-      variant="ghost"
+      variant="outline"
       data-slot="aui_thread-list-new"
-      className="hover:bg-muted data-active:bg-muted h-8 justify-start gap-2 rounded-md px-2.5 text-sm font-normal"
+      className="h-8 justify-start gap-2 rounded-md px-2.5 text-sm font-normal border-border bg-muted/20 hover:bg-accent"
     >
       <PlusIcon data-slot="aui_thread-list-new-icon" className="size-4 shrink-0" />
       <span className="whitespace-nowrap">New Chat</span>
