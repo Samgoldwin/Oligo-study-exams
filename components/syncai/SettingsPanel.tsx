@@ -270,33 +270,20 @@ export const SettingsPanel: React.FC<{
           )}
 
           {section === "security" && (
-            <>
-              <Card title="Sign out">
-                <Row className="flex-col items-start gap-2">
-                  <p className="text-[13px] leading-relaxed text-muted-foreground">
-                    Ends your session on this device. Access to chats, models, and history will require signing in again.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onSignOut}
-                    className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 text-[12.5px] font-semibold text-red-400 transition-colors hover:bg-red-500/20"
-                  >
-                    <LogOut size={14} /> Sign out
-                  </button>
-                </Row>
-              </Card>
-              <Card title="Password & sign-in">
-                <Row>
-                  <IconChip icon={Shield} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-foreground">Managed by Firebase</p>
-                    <p className="text-xs text-muted-foreground">
-                      Sign-in methods (Email/Password, Google) are configured on the account.
-                    </p>
-                  </div>
-                </Row>
-              </Card>
-            </>
+            <Card title="Sign out">
+              <Row className="flex-col items-start gap-2">
+                <p className="text-[13px] leading-relaxed text-muted-foreground">
+                  Ends your session on this device. Access to chats, models, and history will require signing in again.
+                </p>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 text-[12.5px] font-semibold text-red-400 transition-colors hover:bg-red-500/20"
+                >
+                  <LogOut size={14} /> Sign out
+                </button>
+              </Row>
+            </Card>
           )}
 
           {section === "sessions" && (

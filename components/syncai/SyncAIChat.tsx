@@ -32,7 +32,6 @@ import {
 import { SyncAISidebar } from './SyncAISidebar';
 import { SyncAIAssistantMessage } from './SyncAIAssistantMessage';
 import { SettingsPanel, type SettingsActivityItem } from './SettingsPanel';
-import { SubjectCodePrompt } from './SubjectCodePrompt';
 import { PyqAnalysis } from './PyqAnalysis';
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -85,7 +84,7 @@ export const SyncAIChat: React.FC<{
   onSignOut?: () => void;
   user?: import('../../services/firebaseClient').UserProfile | null;
 }> = ({ onManageModels, onSignOut, user }) => {
-  const [context, setContext] = useState<AcademicContext>(() => loadContext());
+  const [context] = useState<AcademicContext>(() => loadContext());
   const [view, setView] = useState<"chat" | "pyq" | "settings">("chat");
   const [conversations, setConversations] = useState<Conversation[]>(() => listConversations());
   const [pyqHistory, setPyqHistory] = useState<PyqHistoryItem[]>(() => listPyqHistory());
@@ -95,9 +94,6 @@ export const SyncAIChat: React.FC<{
   const [isExtracting, setIsExtracting] = useState(false);
   const [attachedDoc, setAttachedDoc] = useState<PdfExtractionResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [showSubjectPrompt, setShowSubjectPrompt] = useState<boolean>(
-    () => !loadContext().subjectCode,
-  );
 
   // Settings view (assistant-ui style) — render in place of the PYQ/chat area.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -129,8 +125,6 @@ export const SyncAIChat: React.FC<{
     setActive(createConversation(context));
     setAttachedDoc(null);
     setNotice(null);
-    // Empty thread = first chat → show the subject-code prompt again if unset.
-    setShowSubjectPrompt(!loadContext().subjectCode);
   }, [context]);
 
   const handleSelect = useCallback((id: string) => {
@@ -139,8 +133,6 @@ export const SyncAIChat: React.FC<{
     const conv = getConversation(id);
     if (!conv) return;
     setActive(conv);
-    // Empty thread = first chat → show the subject-code prompt again if unset.
-    setShowSubjectPrompt(!loadContext().subjectCode);
     setAttachedDoc(
       conv.document
         ? {
@@ -643,19 +635,7 @@ export const SyncAIChat: React.FC<{
             </div>
           ) : view === "chat" ? (
             <>
-              {/* Academic context (subject code from the chat) + attachments */}
-              {showSubjectPrompt && (
-                <div className="border-b border-border bg-background/60 px-3 pt-2">
-                  <SubjectCodePrompt
-                    onDismiss={() => setShowSubjectPrompt(false)}
-                    onResolved={(subject, subjectCode) => {
-                      setContext((c) => ({ ...c, subject, subjectCode }));
-                      setShowSubjectPrompt(false);
-                      setNotice(null);
-                    }}
-                  />
-                </div>
-              )}
+              {/* Attachments (notice + attached PDF chip) */}
               {notice && (
                 <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[12px] text-amber-200">
                   <span className="min-w-0 flex-1">{notice}</span>
