@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { checkRateLimit } from '../../_lib/ratelimit';
 import { requirePost, getClientIp, sendError, asString, asNumber } from '../../_lib/http';
 import { searchResources } from '../../_lib/resources';
+import { searchOffline, hydrateHits } from '../../_lib/localIndex';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requirePost(req, res)) return;
@@ -20,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const limit = asNumber(body.limit);
 
   try {
-    const resources = searchResources({
+    let resources = searchResources({
       query,
       branch: asString(body.branch, 32),
       semester: semester !== null && semester >= 1 && semester <= 8 ? Math.round(semester) : null,
@@ -30,6 +31,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       limit: limit ?? 8,
       minScore: 2,
     });
+
+    // Offline MiniSearch index as the FIRST fallback (no network, no AI).
+    if (resources.length === 0) {
+      const hits = searchOffline(query, limit ?? 8);
+      if (hits.length) resources = hydrateHits(hits);
+    }
 
     // On total miss, retry without the scheme/branch constraints so students
     // still see something relevant rather than an empty page.
@@ -49,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resources: finalResults,
       count: finalResults.length,
       relaxed_context: relaxed,
-      source: 'VTUSync (stub dataset)',
+      source: 'VTUSync (stub dataset + offline MiniSearch index)',
     });
   } catch (err) {
     console.error('Resource search failed:', err);
