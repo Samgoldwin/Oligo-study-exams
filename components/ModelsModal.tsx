@@ -36,20 +36,8 @@ function sigOf(baseUrl: string, model: string, key: string): string {
   return `${baseUrl.trim()}|${model.trim()}|${key.trim()}`;
 }
 
-const RESULTS = [
-  { name: "Google Gemini", info: "Free tier", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" },
-  { name: "Groq", info: "Free tier", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
-  { name: "OpenRouter", info: "Free models", baseUrl: "https://openrouter.ai/api/v1", model: "google/gemini-2.5-flash" },
-  { name: "NVIDIA NIM", info: "40 RPM, free", baseUrl: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
-  { name: "Cohere", info: "1,000 calls/mo", baseUrl: "https://api.cohere.ai/v2", model: "command-r7b-12b" },
-  { name: "Mistral AI", info: "Experimental free", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
-  { name: "Together AI", info: "Free tier", baseUrl: "https://api.together.xyz/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" },
-  { name: "Cerebras", info: "Free tier", baseUrl: "https://api.cerebras.ai/v1", model: "llama3.1-70b-versatile" },
-  { name: "Cloudflare Workers AI", info: "10k requests/day", baseUrl: "https://api.cloudflare.com/client/v4/accounts/your-account-id/ai/v1", model: "@cf/meta/llama-4-scout-17b-16e-instruct" },
-  { name: "DeepSeek", info: "Low-cost", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
-];
-
-function ResultsLegend() {
+  // (No preset chips — freellm.net directory link only.)
+  function ResultsLegend() {
   return (
     <div className="rounded-xl border border-border bg-muted/25 px-3.5 py-3">
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Understanding test results</p>
@@ -209,19 +197,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     setTimeout(() => firstInputRef.current?.focus(), 60);
   };
 
-  const applyPreset = (p: (typeof RESULTS)[number]) => {
-    setName(p.name);
-    setBaseUrl(p.baseUrl);
-    setModel(p.model);
-    setMissing({});
-    setError(null);
-    // keep savedSigRef logic — snapshot clear; verify step re-runs on change
-    setVerifiedSig(null);
-    setTestStage("idle");
-    setTestResult(null);
-    firstInputRef.current?.focus();
-  };
-
   const inputCls =
     "w-full rounded-xl border border-border bg-background/60 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-foreground/30 focus:bg-background";
   const secondaryBtnCls =
@@ -229,7 +204,6 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const primaryBtnCls =
     "flex h-9 flex-1 items-center justify-center rounded-xl bg-foreground px-4 text-[13px] font-semibold text-background transition-colors hover:opacity-90 disabled:opacity-50";
   const meta = testResult ? VERDICT_META[testResult.verdict] : null;
-  const activeProvider = RESULTS.find((p) => p.baseUrl === baseUrl.trim());
   const TEST_STEPS = [
     { text: "Encrypting your API key in this browser", desc: "RSA-OAEP · your key never travels in plain text" },
     { text: "Sending the encrypted key to SyncAI over HTTPS", desc: "Ciphertext only crosses the network" },
@@ -240,7 +214,7 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
     testStage === "encrypting" ? 0 : testStage === "sending" ? 2 : testStage === "done" ? TEST_STEPS.length : -1;
 
   const TrustTimeline: React.FC = () => (
-    <div className="mt-3 rounded-xl border border-indigo-500/25 bg-indigo-500/10 p-3.5">
+    <div className="mt-3 rounded-xl border border-border bg-muted/20 p-3.5">
       <ol className="flex flex-col gap-2.5">
         {TEST_STEPS.map((s, i) => {
           const isActive = i === activeTestStep;
@@ -251,18 +225,18 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
                 {isActive ? (
                   <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : (
-                  <span className={cn("size-1.5 rounded-full", isDone ? "bg-indigo-300" : "bg-indigo-300/30")} />
+                  <span className={cn("size-1.5 rounded-full", isDone ? "bg-foreground/60" : "bg-muted-foreground/30")} />
                 )}
               </span>
               <div className="min-w-0">
-                <p className="text-[12.5px] font-medium leading-snug text-indigo-100">{s.text}</p>
-                <p className="text-[11px] leading-snug text-indigo-200/70">{s.desc}</p>
+                <p className="text-[12.5px] font-medium leading-snug text-foreground">{s.text}</p>
+                <p className="text-[11px] leading-snug text-muted-foreground">{s.desc}</p>
               </div>
             </li>
           );
         })}
       </ol>
-      <div className="mt-3 border-t border-indigo-500/20 pt-2.5 text-[11px] leading-relaxed text-indigo-200/80">
+      <div className="mt-3 border-t border-border/70 pt-2.5 text-[11px] leading-relaxed text-muted-foreground">
         {testStage === "encrypting"
           ? "Your API key is being locked before it leaves this device."
           : "We never store your API key in plain text. Ciphertext only, decrypted in memory for a single call."}
@@ -352,45 +326,21 @@ export const ModelsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ 
           {step === 1 && (
             <div className="animate-in fade-in-0">
               {/* Free API key directory */}
-              <div className="mb-3 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
+              <div className="mb-3 rounded-xl border border-border bg-muted/20 px-3.5 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold text-foreground">
-                    Need a free API key? <span className="font-normal text-muted-foreground">585+ free models, 31 providers.</span>
-                  </p>
+                  <p className="text-[11px] font-semibold text-foreground">Need a free API key?</p>
+                  <a
+                    href="https://freellm.net/free-llm-api-keys"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="shrink-0 text-[11px] font-medium text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground"
+                  >
+                    Open directory
+                  </a>
                 </div>
                 <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
-                  Tap one to auto-fill, then paste the key you get on freellm.net.
+                  585+ free models across 31 providers. Tap one to auto-fill, then paste the key you get there.
                 </p>
-                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 snap-x">
-                  {RESULTS.map((p) => {
-                    const isActive = activeProvider?.baseUrl === p.baseUrl;
-                    return (
-                      <button
-                        key={p.name}
-                        type="button"
-                        onClick={() => applyPreset(p)}
-                        title={`${p.name} · ${p.info}`}
-                        className={cn(
-                          "flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors",
-                          isActive
-                            ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-200"
-                            : "border-border bg-background/40 text-muted-foreground hover:bg-accent hover:text-foreground",
-                        )}
-                      >
-                        <span>{p.name}</span>
-                        <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-400">{p.info}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <a
-                  href="https://freellm.net/free-llm-api-keys"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mt-1 inline-block text-[11px] font-semibold text-indigo-300 underline decoration-indigo-300/40 underline-offset-4 transition-colors hover:text-indigo-200"
-                >
-                  Open freellm.net/free-llm-api-keys
-                </a>
               </div>
 
               {models.length > 0 && (
